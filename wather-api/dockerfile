@@ -1,0 +1,26 @@
+# 1. Imagem base
+FROM node:22-alpine
+
+# 2. Habilita o corepack (pra usar pnpm nativo)
+RUN corepack enable
+
+# 3. Diretório de trabalho
+WORKDIR /app
+
+# 4. Copia só arquivos de dependência primeiro (pra cache funcionar bem)
+COPY package.json pnpm-lock.yaml ./
+
+# 5. Instala dependências (isso acontece APENAS no build da imagem)
+RUN pnpm install --frozen-lockfile
+
+# 6. Copia o restante do código
+COPY . .
+
+# 7. Build da aplicação (se você já estiver usando o build do Nest)
+RUN pnpm build
+
+# 8. Porta exposta
+EXPOSE 3000
+
+# 9. Comando padrão (produção)
+CMD ["pnpm", "start:prod"]

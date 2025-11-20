@@ -1,0 +1,60 @@
+services: 
+  mongo: 
+    image: mongo:7
+    container_name: mongo
+    restart: unles-stopped
+    ports: 
+      - "27017:27017"
+    volumes: 
+      - mongo_data:/data/db 
+
+  weather-api: 
+    build:
+      context: ./wather-api
+      dockerfile: Dockerfile
+    container_name: wather-api
+    restart: unless-stopped
+    env_file:
+      - ./wather-api/.env
+    ports: 
+      -"3000:3000"
+    depends_on:
+      - mongo
+    volumes: 
+      - ./wather-api:/app
+
+  go-woker: 
+    build:
+      context: ./go-worker
+      dockerfile: Dockerfile
+    container_name: go-worker
+    restart: unless-stopped
+    depends_on:
+      - weather-api
+
+  data-collector:
+    build:
+      context: ./data-colector
+      dockerfile: Dockerfile
+    container_name: data-collector
+    restart: unless-stopped
+    depends_on:
+      # - broker (quando tiver)
+      - weather-api
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: client
+    restart: unless-stopped
+    ports:
+      - "5173:5173"   # porta padrão do Vite
+    depends_on:
+      - weather-api
+
+
+
+
+volumes:
+  mongo_data:
