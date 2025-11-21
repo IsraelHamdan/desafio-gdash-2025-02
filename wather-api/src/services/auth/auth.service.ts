@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { LoginUserDto } from 'src/DTO/user/login.dto';
 import { ArgonService } from '../argon/argon.service';
-import { User } from 'src/schemas/user/user.schema';
+import { User, UserDocument } from 'src/schemas/user/user.schema';
 import { UserResponse } from 'src/DTO/user/user.dto';
 
 
@@ -17,7 +17,7 @@ export class AuthService {
   ) {}
 
 
-  async validateUser(data: LoginUserDto): Promise<UserResponse> {
+  async validateUser(data: LoginUserDto): Promise<UserDocument> {
     try { 
       const user = await this.userService.findUserByEmail(data.email)
 
@@ -29,16 +29,20 @@ export class AuthService {
 
       if(!isValid) throw new UnauthorizedException(`Credenciais inválidas`)
 
-      return this.userService.mapToUserResponse(user)
+      return user
     } catch(err) {
+      if (err instanceof UnauthorizedException || err instanceof NotFoundException) {
+        throw err;
+      }
       throw new InternalServerErrorException(`Erro ao validar credenciais: ${err}`)
     }
 
   }
 
-  async login(data: LoginUserDto) {
+  async login(data: LoginUserDto): Promise<{user: UserResponse, accessToken: string}> {
     try { 
-      const user = await this.validateUser(data)
+      const userEntity = await this.validateUser(data)
+      const user = this.userService.mapToUserResponse(userEntity)
 
       const payload = {
         sub: user.id.toString(), 
@@ -48,8 +52,14 @@ export class AuthService {
 
       const accessToken = await this.jwtService.signAsync(payload)
 
-      return {accessToken}
+      return {user, accessToken}
     } catch(err) {
+      if(err instanceof UnauthorizedException) {
+        throw new UnauthorizedException(`Login não autorizado: ${err.message}`)
+      }
+      throw new InternalServerErrorException(`Erro interno do Servidor: ${err}`)
     }
   }
+
+
 }

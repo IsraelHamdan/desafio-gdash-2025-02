@@ -1,26 +1,17 @@
-import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ZodValidationPipe } from 'src/commom/pipes/zod-validation.pipe';
-import { CreateUserDto, createUserSchema } from 'src/DTO/user/user.dto';
+import { BadRequestException, Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Guardian } from 'src/auth-guard/auth-guard.guard';
 import { UserService } from 'src/services/user/user.service';
 
+
+@UseGuards(Guardian)
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
-
-  @Post()
-  async createUser(
-    @Body(new ZodValidationPipe(createUserSchema)) body: CreateUserDto
-  ) {
-    try { 
-      const user = await this.userService.createUser(body)
-      return user
-    } catch(err) {
-      throw new BadRequestException(err.message)
-    }
-  }
+  constructor(
+    private readonly userService: UserService, 
+  ) {}
 
   @Get(':id')
-  async findById(@Param() id: string) {
+  async findById(@Param('id') id: string, @Req() req: Request) {
     try { 
       return await this.userService.findById(id)
     } catch(err) {

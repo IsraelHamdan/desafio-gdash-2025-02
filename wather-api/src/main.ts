@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
-
+import cookie from '@fastify/cookie';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
@@ -16,6 +16,8 @@ async function bootstrap() {
     reply.header('Content-Type', 'application/json');
     done();
   });
+
+  await app.register(cookie, {secret: process.env.COOKIE_SECRET ?? 'dev-cookie-secret'})
   
   await app.listen(process.env.PORT ?? 3000);
 }

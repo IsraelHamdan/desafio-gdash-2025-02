@@ -4,43 +4,47 @@ import { Model, MongooseError } from 'mongoose';
 import { CreateUserDto, UpdateUserDto, userResponse, UserResponse } from 'src/DTO/user/user.dto';
 import { User, UserDocument } from 'src/schemas/user/user.schema';
 import { ArgonService } from '../argon/argon.service';
+import { AuthService } from '../auth/auth.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
-    private readonly argon: ArgonService
+    private readonly argon: ArgonService, 
+
   ) {}
-async createUser(data: CreateUserDto): Promise<UserResponse> {
-  try {
-    const exists = await this.userModel.findOne({ email: data.email }).exec();
-    if (exists) {
-      throw new ConflictException('Esse email já esta em uso');
+  async createUser(data: CreateUserDto): Promise<UserResponse> {
+    try {
+      const exists = await this.userModel.findOne({ email: data.email }).exec();
+      if (exists) {
+        throw new ConflictException('Esse email já esta em uso');
+      }
+
+      const passwordHash = await this.argon.hashPassowrd(data.passwordHash); // (tem um typo aqui: hashPassowrd)
+      
+      const user = new this.userModel({
+        name: data.name,
+        email: data.email,
+        passwordHash,
+        role: data.role ?? 'user',
+        phone: data.phone,
+      });
+      
+
+      const saved = await user.save();
+
+      return this.mapToUserResponse(saved);
+    } catch (err) {
+      if (err instanceof MongooseError) {
+        throw new MongooseError(`Erro do Mongo ao criar um usuário: ${err}`);
+      }
+      throw new InternalServerErrorException(
+        `Erro interno do servidor ao crirar usuário: ${err}`,
+      );
     }
-
-    const passwordHash = await this.argon.hashPassowrd(data.passwordHash); // (tem um typo aqui: hashPassowrd)
-
-    const user = new this.userModel({
-      name: data.name,
-      email: data.email,
-      passwordHash,
-      role: data.role ?? 'user',
-      phone: data.phone,
-    });
-
-    const saved = await user.save();
-
-    return this.mapToUserResponse(saved);
-  } catch (err) {
-    if (err instanceof MongooseError) {
-      throw new MongooseError(`Erro do Mongo ao criar um usuário: ${err}`);
-    }
-    throw new InternalServerErrorException(
-      `Erro interno do servidor ao crirar usuário: ${err}`,
-    );
   }
-}
 
   async findByEmail(email: string): Promise<UserResponse> {
     try { 
