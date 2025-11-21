@@ -1,6 +1,9 @@
 # 1. Imagem base
 FROM node:22-alpine
 
+# 1. Ferramentas de build pra dependências nativas (argon2 etc)
+RUN apk add --no-cache python3 make g++ libc6-compat
+
 # 2. Habilita o corepack (pra usar pnpm nativo)
 RUN corepack enable
 
