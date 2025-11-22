@@ -16,7 +16,7 @@ export class User {
   email: string;
 
   @Prop({ required: true })
-  passwordHash: string;
+  password: string;
 
   @Prop({ default: 'user' })
   role: 'admin' | 'user';

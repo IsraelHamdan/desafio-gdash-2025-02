@@ -22,12 +22,12 @@ export class UserService {
         throw new ConflictException('Esse email já esta em uso');
       }
 
-      const passwordHash = await this.argon.hashPassowrd(data.passwordHash); // (tem um typo aqui: hashPassowrd)
+      const passwordHash = await this.argon.hashPassowrd(data.password); 
       
       const user = new this.userModel({
         name: data.name,
         email: data.email,
-        passwordHash,
+        password: passwordHash,
         role: data.role ?? 'user',
         phone: data.phone,
       });
@@ -47,11 +47,14 @@ export class UserService {
   }
 
   async findByEmail(email: string): Promise<UserResponse> {
+    console.log("🚀 ~ UserService ~ findByEmail ~ email:", email)
     try { 
       const user = await this.userModel.findOne({email}).exec()
-
+      
       if(!user) throw new NotFoundException(`Não foi possivel encontrar o usuário`)
-      return this.mapToUserResponse(user)
+            
+      
+      return this.mapToUserResponse(user) 
     } catch(err) {
       if(err instanceof MongooseError) {
         throw new MongooseError(`Erro ao buscar usuário: ${err}`)
@@ -60,10 +63,15 @@ export class UserService {
     }
   }
     async findUserByEmail(email: string): Promise<UserDocument | null>{
+    console.log("🚀 ~ UserService ~ findUserByEmail ~ email:", email)
     try { 
       const user = await this.userModel.findOne({email}).exec()
-
+      
       if(!user) throw new NotFoundException(`Não foi possivel encontrar o usuário`)
+        
+      console.log("🚀 ~ UserService ~ findUserByEmail ~ user:", user)
+      
+      
       return user
     } catch(err) {
       if(err instanceof MongooseError) {
@@ -85,7 +93,7 @@ export class UserService {
       throw new InternalServerErrorException(`Erro interno do servidor ao buscar usuário: ${err}`)
     }
   }
-  
+
 
   async update(data: UpdateUserDto, id: string): Promise<UserResponse> {
     try { 

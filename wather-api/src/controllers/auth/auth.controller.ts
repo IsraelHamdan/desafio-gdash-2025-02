@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Post, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpException, InternalServerErrorException, Post, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { FastifyError, FastifyReply } from 'fastify';
@@ -34,13 +34,17 @@ export class AuthController {
       @Body() data: LoginUserDto, 
       @Res({passthrough: true}) res: FastifyReply 
   ) {
+      console.log("🚀 ~ AuthController ~ login ~ data:", data)
     try { 
       const {user, accessToken} = await this.service.login(data)
 
       this.setCookie(res, accessToken)
-      return {user}
+      return {user, accessToken}
     } catch(err) {
-      throw new BadRequestException(`Falha ao fazer login: ${err}`)
+      if(err instanceof HttpException) {throw err}
+
+      console.error(`Erro no login: ${err}`)
+      throw new InternalServerErrorException(`Falha ao realizar login`)
     }
   }
 
@@ -62,7 +66,7 @@ export class AuthController {
 
       this.setCookie(res, accessToken)
 
-      return {user}
+      return {user,accessToken}
     } catch(err) {
       throw new BadRequestException(err.message)
     }
