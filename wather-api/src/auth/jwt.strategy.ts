@@ -10,6 +10,12 @@ export interface JwtPayload {
   role: 'admin' | 'user';
 }
 
+export interface AuthUser {
+  userId: string;
+  email: string;
+  role: 'admin' | 'user';
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService) {

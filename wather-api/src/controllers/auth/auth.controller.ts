@@ -39,7 +39,7 @@ export class AuthController {
       const {user, accessToken} = await this.service.login(data)
 
       this.setCookie(res, accessToken)
-      return {user, accessToken}
+      return { user, accessToken}
     } catch(err) {
       if(err instanceof HttpException) {throw err}
 

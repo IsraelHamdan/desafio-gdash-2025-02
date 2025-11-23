@@ -7,8 +7,6 @@ import { Document } from 'mongoose';
   timestamps: true
 })
 export class User {
-
-
   @Prop({ required: true })
   name: string;
 

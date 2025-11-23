@@ -68,9 +68,6 @@ export class UserService {
       const user = await this.userModel.findOne({email}).exec()
       
       if(!user) throw new NotFoundException(`Não foi possivel encontrar o usuário`)
-        
-      console.log("🚀 ~ UserService ~ findUserByEmail ~ user:", user)
-      
       
       return user
     } catch(err) {
@@ -83,7 +80,7 @@ export class UserService {
 
   async findById(id: string): Promise<UserResponse> {
     try { 
-      const user = await this.userModel.findOne({id}).exec()
+      const user = await this.userModel.findById({_id:id}).exec()
       if(!user) throw new NotFoundException(`Não foi possivel encontrar o usuário`)
       return this.mapToUserResponse(user)
     } catch(err) {
@@ -94,10 +91,22 @@ export class UserService {
     }
   }
 
+  async findAll(): Promise<UserResponse[]> {
+    try {
+      const users = await this.userModel.find().exec();
+      return users.map((u) => this.mapToUserResponse(u));
+    } catch (err) {
+      throw new InternalServerErrorException('Erro ao buscar usuários');
+    }
+  } 
 
   async update(data: UpdateUserDto, id: string): Promise<UserResponse> {
     try { 
-      const updatedUser = await this.userModel.findByIdAndUpdate({id}, {$set: data}, {new: true})
+      const updatedUser = await this.userModel.findByIdAndUpdate(
+        id, 
+        {$set: data}, 
+        {new: true}
+      )
       if (!updatedUser) {
         throw new NotFoundException('Não é possivel encontrar o usuári');
       }
@@ -123,4 +132,40 @@ export class UserService {
     return userResponse.parse(plain);
   }
 
+
+  async hardDelete(id: string): Promise<void> {
+    try { 
+      const user = await this.findById(id)
+      const result = await this.userModel.deleteOne({_id: id}).exec()
+      if (!result) {
+        throw new NotFoundException("Usuário não encontrado para deletar");
+      }
+    } catch(err) {
+      if(err instanceof MongooseError) throw new MongooseError(err.message)
+      
+      throw new InternalServerErrorException(err.message)
+    }
+  }
+
+  async deactivate(id: string): Promise<UserResponse> {
+    try {
+      const updated = await this.userModel
+        .findByIdAndUpdate(
+          id,
+          { $set: { isActive: false } },
+          { new: true },
+        )
+        .exec();
+
+      if (!updated) {
+        throw new NotFoundException('Usuário não encontrado para desativar');
+      }
+
+      return this.mapToUserResponse(updated);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      console.error('Erro ao desativar usuário:', err);
+      throw new InternalServerErrorException('Erro ao desativar usuário');
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { UserService } from '../../services/user/user.service';
 import { UserController } from 'src/controllers/user/user.controller';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -6,6 +6,7 @@ import { User, UserSchema } from 'src/schemas/user/user.schema';
 import { ArgonModule } from '../argon/argon.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   providers: [UserService],
@@ -15,7 +16,7 @@ import { ConfigModule } from '@nestjs/config';
       {name: User.name, schema: UserSchema}
     ]),
     ArgonModule,
-    ConfigModule
+    forwardRef(() => AuthModule),
   ],
   exports: [UserService]
 })

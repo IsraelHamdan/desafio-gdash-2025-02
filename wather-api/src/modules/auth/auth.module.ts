@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef  } from '@nestjs/common';
 import { ArgonModule } from '../argon/argon.module';
 import { UserModule } from '../user/user.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -7,11 +7,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from 'src/auth/jwt.strategy';
 import { AuthController } from 'src/controllers/auth/auth.controller';
+import { RolesGuard } from '$/auth/guards/role/role.guard';
+import { Guardian } from '$/auth/guards/auth-guard/auth-guard.guard';
 
 @Module({
   imports: [
     ArgonModule, 
-    ConfigModule, 
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -23,10 +24,16 @@ import { AuthController } from 'src/controllers/auth/auth.controller';
       })
     }),
     PassportModule.register({defaultStrategy: 'jwt'}), 
-    UserModule,
+    forwardRef(() => UserModule),
   ], 
-  providers: [ AuthService, JwtStrategy ], 
+  providers: [ AuthService, JwtStrategy, RolesGuard, Guardian], 
   controllers: [AuthController],
-  exports: [AuthService, JwtModule]
+  exports: [
+    AuthService,
+    JwtStrategy,
+    Guardian,
+    RolesGuard, 
+    JwtModule,
+  ],
 })
 export class AuthModule {}
