@@ -1,0 +1,37 @@
+services: 
+  weather-api:
+    build:
+      context: ./wather-api
+      dockerfile: Dockerfile.dev
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+    volumes:
+      - ./wather-api:/app
+      - /app/node_modules
+
+  data-collector:
+    build:
+      context: ./data-colector
+      dockerfile: Dockerfile.dev
+    container_name: data-collector
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      INPUT_QUEUE: weather.locations
+      OUTPUT_QUEUE: weather.jobs
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./data-colector:/app
+
+  go-worker: 
+    build:
+      context: ./go-worker
+      dockerfile: Dockerfile.dev
+    container_name: go-worker
+    restart: unless-stopped
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      NEST_API_URL: http://weather-api:3000/api/weather/intake
+    depends_on:
+      - rabbitmq
+      - weather-api

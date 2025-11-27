@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o worker ./cmd/worker"
+bin = "worker"
+include_ext = ["go"]
+exclude_dir = ["vendor", "tmp"]
+
+[log]
+time = true

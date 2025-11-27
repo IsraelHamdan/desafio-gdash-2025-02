@@ -4,26 +4,23 @@ FROM node:22-alpine
 # 1. Ferramentas de build pra dependências nativas (argon2 etc)
 RUN apk add --no-cache python3 make g++ libc6-compat
 
-# 2. Habilita o corepack (pra usar pnpm nativo)
-RUN corepack enable
 
 # 3. Diretório de trabalho
 WORKDIR /app
 
-# 4. Copia só arquivos de dependência primeiro (pra cache funcionar bem)
-COPY package.json pnpm-lock.yaml ./
+# copia package.json + package-lock.json
+COPY package.json package-lock.json ./
 
-# 5. Instala dependências (isso acontece APENAS no build da imagem)
-RUN pnpm install --frozen-lockfile
+RUN npm ci
 
 # 6. Copia o restante do código
 COPY . .
 
 # 7. Build da aplicação (se você já estiver usando o build do Nest)
-RUN pnpm build
+RUN npm run build
 
 # 8. Porta exposta
 EXPOSE 3000
 
 # 9. Comando padrão (produção)
-CMD ["pnpm", "start:prod"]
+CMD ["npm","run", "start:prod"]

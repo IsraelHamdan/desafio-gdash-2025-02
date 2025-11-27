@@ -1,0 +1,24 @@
+# Usa uma versão mais nova de Go (>= 1.25)
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+# Ferramentas básicas
+RUN apk add --no-cache git ca-certificates
+
+# Permite o go baixar toolchain mais novo se precisar
+ENV GOTOOLCHAIN=auto
+
+# Instala o Air (live reload)
+RUN go install github.com/air-verse/air@latest
+
+# Prepara cache de dependências
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copia código (vai ser sobrescrito pelo volume em dev)
+COPY . .
+
+ENV PATH="/go/bin:${PATH}"
+
+CMD ["air", "-c", ".air.toml"]

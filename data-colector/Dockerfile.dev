@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+# requirements “normais”
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# dep de dev pra hot-reload
+RUN pip install --no-cache-dir watchdog
+
+# Em dev, o código virá via volume (não precisa copiar aqui)
+
+ENV PYTHONUNBUFFERED=1
+
+# Hot-reload: reinicia o processo quando qualquer .py mudar
+CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "app.py"]

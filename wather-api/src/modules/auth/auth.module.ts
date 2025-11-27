@@ -1,4 +1,5 @@
-import { Module, forwardRef  } from '@nestjs/common';
+/* eslint-disable prettier/prettier */
+import { Module, forwardRef } from '@nestjs/common';
 import { ArgonModule } from '../argon/argon.module';
 import { UserModule } from '../user/user.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -12,28 +13,22 @@ import { Guardian } from '$/auth/guards/auth-guard/auth-guard.guard';
 
 @Module({
   imports: [
-    ArgonModule, 
+    ArgonModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_KEY'),
         signOptions: {
-          expiresIn: config.get<string>('JWT_EXPIRES_IN')
-        }
-      })
+          expiresIn: config.get<number>('JWT_EXPIRES_IN'),
+        },
+      }),
     }),
-    PassportModule.register({defaultStrategy: 'jwt'}), 
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     forwardRef(() => UserModule),
-  ], 
-  providers: [ AuthService, JwtStrategy, RolesGuard, Guardian], 
-  controllers: [AuthController],
-  exports: [
-    AuthService,
-    JwtStrategy,
-    Guardian,
-    RolesGuard, 
-    JwtModule,
   ],
+  providers: [AuthService, JwtStrategy, RolesGuard, Guardian],
+  controllers: [AuthController],
+  exports: [AuthService, JwtStrategy, Guardian, RolesGuard, JwtModule],
 })
 export class AuthModule {}
