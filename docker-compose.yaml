@@ -76,5 +76,19 @@ services:
         condition: service_healthy
     command: python app.py
 
+  dashboard:
+    build:
+      context: ./weather-dashboard
+      dockerfile: Dockerfile
+    container_name: weather-client
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://weather-api:3000
+    depends_on:
+      weather-api:
+        condition: service_started
+
 volumes:
   mongo_data:

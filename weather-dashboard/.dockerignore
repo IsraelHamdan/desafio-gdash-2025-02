@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.gitignore
+Dockerfile
+Dockerfile.dev
+.vscode
+.eslintcache
+coverage
+npm-debug.log*

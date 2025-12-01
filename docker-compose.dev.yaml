@@ -64,3 +64,23 @@ services:
       - weather-api
     volumes:
       - ./go-worker:/app
+
+  dashboard:
+    build:
+      context: ./weather-dashboard
+      dockerfile: Dockerfile.dev
+    container_name: dashboard
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://weather-api:3000
+    volumes:
+      - ./weather-dashboard/src:/app/src
+      - ./weather-dashboard/index.html:/app/index.html
+      - ./weather-dashboard/tailwind.config.js:/app/tailwind.config.js
+      - ./weather-dashboard/postcss.config.js:/app/postcss.config.js
+      - ./weather-dashboard/tsconfig.json:/app/tsconfig.json
+      - ./weather-dashboard/tsconfig.app.json:/app/tsconfig.app.json
+      - ./weather-dashboard/tsconfig.node.json:/app/tsconfig.node.json
+      - ./weather-dashboard/components.json:/app/components.json
+      - ./weather-dashboard/src/components:/app/src/components
