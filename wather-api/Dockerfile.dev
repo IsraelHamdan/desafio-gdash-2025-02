@@ -4,12 +4,12 @@ RUN apk add --no-cache python3 make g++ libc6-compat
 
 WORKDIR /app
 
-# Só package.json pra instalar deps
+
 COPY package.json package-lock.json ./
 
 RUN npm ci
 
-
+COPY . .
 
 # Porta que o Nest usa
 EXPOSE 3000

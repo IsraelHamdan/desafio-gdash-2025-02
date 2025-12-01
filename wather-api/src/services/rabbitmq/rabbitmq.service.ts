@@ -29,22 +29,35 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
+    this.logger.log(`🔌 Conectando ao RabbitMQ: ${this.rabbitURL}`);
     this.connection = await amqp.connect(this.rabbitURL);
+    this.logger.log('✅ Conectado ao RabbitMQ');
+
     this.channel = await this.connection.createChannel();
+    this.logger.log('✅ Canal RabbitMQ criado');
   }
 
   async onModuleDestroy() {
+    this.logger.log('🛑 Fechando conexão RabbitMQ...');
     await this.channel?.close();
     await this.connection?.close();
   }
 
   async sendToQueue(queue: string, payload: unknown) {
     if (!this.channel) {
+      this.logger.error('❌ Canal RabbitMQ não inicializado');
       throw new Error('RabbitMQ channel not initialized');
     }
 
     await this.channel.assertQueue(queue, { durable: true });
     const body = Buffer.from(JSON.stringify(payload));
+
+    this.logger.log(`📤 Enviando mensagem para fila '${queue}'`);
+    this.logger.debug(
+      `📦 Payload: ${JSON.stringify(payload).substring(0, 200)}...`,
+    );
+
     this.channel.sendToQueue(queue, body, { persistent: true });
+    this.logger.log(`✅ Mensagem enviada para '${queue}'`);
   }
 }

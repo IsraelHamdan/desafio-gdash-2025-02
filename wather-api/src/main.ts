@@ -31,7 +31,7 @@ async function bootstrap() {
     secret: process.env.COOKIE_SECRET ?? 'dev-cookie-secret',
   });
 
-  const port = Number(process.env.PORT || 300);
+  const port = Number(process.env.PORT || 3000);
 
   await app.listen(port, '0.0.0.0');
 }

@@ -1,26 +1,31 @@
-services: 
-  mongo: 
+services:
+  mongo:
     image: mongo:7
     container_name: mongo
     restart: unless-stopped
-    ports: 
+    ports:
       - "27017:27017"
-    volumes: 
-      - mongo_data:/data/db 
-
-  rabbitmq: 
+    volumes:
+      - mongo_data:/data/db
+  rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"    # broker
-      - "15672:15672"  # painel web
+      - "5672:5672" # broker
+      - "15672:15672" # painel web
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: "10s"
+      timeout: "5s"
+      retries: 5
+    depends_on:
+      - mongo
 
-
-  weather-api: 
+  weather-api:
     build:
       context: ./wather-api
       dockerfile: Dockerfile
@@ -28,16 +33,20 @@ services:
     restart: unless-stopped
     env_file:
       - ./wather-api/.env
-    ports: 
+    ports:
       - "3000:3000"
     environment:
       MONGO_URI_DEV: mongodb://mongo:27017/gdash
       NODE_ENV: production
       PORT: "3000"
     depends_on:
-      - mongo
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+    command: npm run start:dev
 
-  go-worker: 
+  go-worker:
     build:
       context: ./go-worker
       dockerfile: Dockerfile
@@ -45,14 +54,16 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      NEST_API_URL: http://weather-api:3000/api/weather/intake
+      NEST_API_URL: http://weather-api:3000/weather/intake
     depends_on:
-      - rabbitmq
-      - weather-api
+      rabbitmq:
+        condition: service_healthy
+      weather-api:
+        condition: service_started
 
   data-collector:
     build:
-      context: ./data-colector  # também confere esse nome de pasta
+      context: ./data-colector
       dockerfile: Dockerfile
     container_name: data-collector
     restart: unless-stopped
@@ -61,9 +72,9 @@ services:
       INPUT_QUEUE: weather.locations
       OUTPUT_QUEUE: weather.jobs
     depends_on:
-      - rabbitmq
-
-
+      rabbitmq:
+        condition: service_healthy
+    command: python app.py
 
 volumes:
   mongo_data:

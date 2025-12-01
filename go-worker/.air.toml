@@ -2,10 +2,21 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "go build -o worker ./cmd/worker"
-bin = "worker"
-include_ext = ["go"]
-exclude_dir = ["vendor", "tmp"]
+  cmd = "go build -o ./tmp/worker ."
+  entrypoint = "./tmp/worker"
+  include_ext = ["go"]
+  exclude_dir = ["vendor", "tmp", ".git"]
+  exclude_file = []
+  delay = 1000
 
 [log]
-time = true
+  time = true
+
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  clean_on_exit = true

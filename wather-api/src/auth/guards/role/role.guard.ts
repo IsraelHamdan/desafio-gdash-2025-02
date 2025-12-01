@@ -1,9 +1,10 @@
-import { 
-    CanActivate, 
-    ExecutionContext, 
-    ForbiddenException, 
-    Injectable, 
-    UnauthorizedException 
+/* eslint-disable prettier/prettier */
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FastifyRequest } from 'fastify';
@@ -15,24 +16,29 @@ import { AuthUser } from 'src/auth/jwt.strategy';
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
     const requiredRoles = this.reflector.getAllAndMerge<Role[]>(ROLES_KEY, [
-      context.getHandler(), 
-      context.getClass()
-    ])
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
-    if(!requiredRoles || requiredRoles.length === 0) return true
+    if (!requiredRoles || requiredRoles.length === 0) return true;
 
-    const req = context.switchToHttp().getRequest<FastifyRequest & {user?: AuthUser}>()
+    const req = context
+      .switchToHttp()
+      .getRequest<FastifyRequest & { user?: AuthUser }>();
 
-    const user = req.user
+    const user = req.user;
 
     if (!user) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
 
-    if(!requiredRoles.includes(user.role)) throw new ForbiddenException("Você não tem permissão para essa ação")
+    if (!requiredRoles.includes(user.role))
+      throw new ForbiddenException('Você não tem permissão para essa ação');
 
-    return true
+    return true;
   }
 }

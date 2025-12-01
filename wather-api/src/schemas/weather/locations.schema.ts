@@ -14,7 +14,7 @@ export class Location {
   city: string;
 
   @Prop({ required: true })
-  neighborhood: string;
+  countryCode: string;
 
   @Prop({ required: true })
   lat: number;
@@ -24,3 +24,5 @@ export class Location {
 }
 
 export type LocationDocument = Location & Document;
+
+export const LocSchema = SchemaFactory.createForClass(Location);

@@ -2,6 +2,7 @@
 import {
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
@@ -14,11 +15,14 @@ import { Model, MongooseError } from 'mongoose';
 import { Location, LocationDocument } from '$/schemas/weather/locations.schema';
 import { LocationDTO } from '$/DTO/weather/location.dto';
 import { WeatherIntakeDto } from '$/DTO/weather/weatherIntake.dto';
-import { WeatherRequestResponseDto } from '$/DTO/weather/weather.dto';
+import {
+  WeatherLogDto,
+  WeatherRequestResponseDto,
+} from '$/DTO/weather/weather.dto';
 
 @Injectable()
 export class WeatherService {
-  private readonly locationsQueue: string = 'weather.location';
+  private readonly locationsQueue: string = 'weather.locations';
 
   constructor(
     private readonly rabbit: RabbitmqService,
@@ -31,25 +35,27 @@ export class WeatherService {
   // O cliente chama esse método! React -> Nest -> RabbitMQ -> Python
   async requestWeather(dto: LocationDTO): Promise<WeatherRequestResponseDto> {
     try {
-      const isRecentWeather = await this.findLocation(dto);
+      const cached = await this.findLocation(dto);
 
-      if (isRecentWeather) {
-        const payload = {
-          city: dto.city,
-          state: dto.state,
-          neighborhood: dto.neighborhood,
-        };
-        await this.rabbit.sendToQueue(this.locationsQueue, payload);
-        return { status: 'queued' };
-      }
+      if (cached) return cached;
+
+      await this.rabbit.sendToQueue(this.locationsQueue, { location: dto });
+
+      return { status: 'queued' };
     } catch (err) {
-      this.SendErrorMessage(err, 'WeatherService.requestWeather');
+      if (err instanceof ServiceUnavailableException) {
+        throw new ServiceUnavailableException(err.message);
+      }
+      throw new InternalServerErrorException(err);
     }
   }
 
-  async handleIntake(dto: WeatherIntakeDto) {
+  async handleIntake(dto: WeatherIntakeDto): Promise<WeatherLogDto> {
     try {
       const updatedLocation = await this.updateLocationDoc(dto);
+
+      if (!updatedLocation?._id)
+        throw new Error('Falha ao atualizar/criar Location');
 
       const weatherLog = await this.weatherLog.create({
         location: updatedLocation?._id,
@@ -57,43 +63,76 @@ export class WeatherService {
         requestedAt: new Date(dto.requestedAt),
         current: {
           ...dto.current,
-          time: new Date(dto.current.time),
+          time: dto.current.time,
         },
         hourly: dto.hourly.map((h) => ({ ...h, time: new Date(h.time) })),
       });
+      return this.mapWeatherLogToDto(weatherLog);
     } catch (err) {
-      this.SendErrorMessage(err, 'WeatherService.requestWeather');
+      if (err instanceof MongooseError) {
+        throw new MongooseError(err.message);
+      }
+      if (err instanceof NotFoundException)
+        throw new NotFoundException(err.message);
+
+      throw new InternalServerErrorException(err);
     }
   }
 
-  async findLocation(data: LocationDTO) {
+  async findLocation(
+    data: LocationDTO,
+  ): Promise<{ status: 'cached'; log: WeatherLogDto } | null> {
     try {
-      const { state, city, neighborhood } = data;
+      const { countryCode, city, state } = data;
 
       const location = await this.locationModel.findOne({
-        state,
+        countryCode,
         city,
-        neighborhood,
+        state,
       });
 
       if (location) {
         const lastLog = await this.weatherLog
           .findOne({ location: location._id })
           .sort({ requestedAt: -1 })
-          .lean();
+          .exec();
 
-        if (lastLog) {
-          const diffMs = Date.now() - new Date(lastLog.requestedAt).getTime();
-          const diffHours = diffMs / (1000 * 60 * 60);
+        if (!lastLog) return null;
 
-          if (diffHours < 2) {
-            // Já tem dado recente, nem manda pro Python
-            return { status: 'cached', log: lastLog };
-          }
+        const diffMs = Date.now() - new Date(lastLog.requestedAt).getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+
+        if (diffHours < 2) {
+          const log: WeatherLogDto = {
+            provider: lastLog.provider,
+            requestedAt: lastLog.requestedAt,
+            current: {
+              temperature: lastLog.current.temperature,
+              apparentTemperature: lastLog.current.apparentTemperature,
+              humidity: lastLog.current.humidity,
+              windspeed: lastLog.current.windspeed,
+              precipitation: lastLog.current.precipitation,
+              time: lastLog.current.time,
+              isDay: lastLog.current.isDay,
+            },
+            hourly: lastLog.hourly.map((h) => ({
+              time: h.time,
+              temperature: h.temperature,
+              humidity: h.humidity,
+              windspeed: h.windspeed,
+              precipitation: h.precipitation,
+            })),
+          };
+          return { status: 'cached', log };
         }
       }
+      return null;
     } catch (err) {
-      this.SendErrorMessage(err, 'findLocation');
+      if (err instanceof MongooseError) {
+        throw new MongooseError(err.message);
+      }
+
+      throw new InternalServerErrorException(err);
     }
   }
 
@@ -101,50 +140,42 @@ export class WeatherService {
     dto: WeatherIntakeDto,
   ): Promise<LocationDocument | null> {
     try {
-      const locationDocFilter = {
-        state: dto.location.state,
-        city: dto.location.city,
-        neighborhood: dto.location.neighborhood,
-      };
-      return await this.locationModel.findByIdAndUpdate(
-        locationDocFilter,
-        {
-          state: dto.location.state,
-          city: dto.location.city,
-          neighborhood: dto.location.neighborhood,
-          lat: dto.location.lat,
-          lon: dto.location.lon,
-        },
+      const { countryCode, city, lat, lon, state } = dto.location;
+
+      return await this.locationModel.findOneAndUpdate(
+        { countryCode, city, state },
+        { countryCode, city, state, lat, lon },
         { upsert: true, new: true },
       );
     } catch (err) {
-      if (err instanceof MongooseError) throw new MongooseError(err.message);
-      throw new InternalServerErrorException(err.message);
+      if (err instanceof MongooseError) {
+        throw new MongooseError(err.message);
+      }
+
+      throw new InternalServerErrorException(err);
     }
   }
 
-  private SendErrorMessage(err: unknown, ctx: string): never {
-    if (err instanceof MongooseError) {
-      throw new MongooseError(`Erro no DB em ${ctx}: ${err.message}`);
-    }
-
-    if (this.isRabbitMQError(err))
-      throw new ServiceUnavailableException(
-        `Erro de mensageria em ${ctx}: ${err.message}`,
-      );
-
-    if (err instanceof Error) {
-      throw new InternalServerErrorException(
-        `Erro interno em ${ctx}: ${err.message}`,
-      );
-    }
-
-    throw new InternalServerErrorException(
-      `Erro desconhecido em ${ctx}: ${err.message}`,
-    );
-  }
-
-  private isRabbitMQError(err: unknown): err is Error & { code?: string } {
-    return err instanceof Error && typeof (err as any).code === 'string';
+  private mapWeatherLogToDto(doc: WeatherLogDocument): WeatherLogDto {
+    return {
+      provider: doc.provider,
+      requestedAt: doc.requestedAt,
+      current: {
+        temperature: doc.current.temperature,
+        apparentTemperature: doc.current.apparentTemperature,
+        humidity: doc.current.humidity,
+        windspeed: doc.current.windspeed,
+        precipitation: doc.current.precipitation,
+        time: doc.current.time,
+        isDay: doc.current.isDay,
+      },
+      hourly: doc.hourly.map((h) => ({
+        time: h.time,
+        temperature: h.temperature,
+        humidity: h.humidity,
+        windspeed: h.windspeed,
+        precipitation: h.precipitation,
+      })),
+    };
   }
 }

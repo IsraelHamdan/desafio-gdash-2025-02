@@ -9,7 +9,7 @@ RUN apk add --no-cache git ca-certificates
 # Permite o go baixar toolchain mais novo se precisar
 ENV GOTOOLCHAIN=auto
 
-# Instala o Air (live reload)
+# Instala o Air (
 RUN go install github.com/air-verse/air@latest
 
 # Prepara cache de dependências

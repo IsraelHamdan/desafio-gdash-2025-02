@@ -20,10 +20,23 @@ def collect_weather_log_location(location: Dict[str, Any]) -> Dict[str, Any]:
     params = {
         "latitude": lat,
         "longitude": lon,
-        "hourly": "temperature_2m,relative_humidity_2m,windspeed_10m,precipitation",
-        "current_weather": "true",
+        # ordem IMPORTA pq vamos acessar por índice
+        "hourly": [
+                "temperature_2m",
+                "relative_humidity_2m",
+                "wind_speed_10m",  # 👈 aqui estava "windspeed_10m"
+                "precipitation",
+        ],       
+        "current": [
+            "temperature_2m", 
+            "relative_humidity_2m", 
+            "apparent_temperature", 
+            "is_day", 
+            "precipitation"
+        ],
         "timezone": "auto",
     }
+
 
     responses = openmeteo.weather_api(url, params=params)
     response = responses[0]
@@ -32,21 +45,30 @@ def collect_weather_log_location(location: Dict[str, Any]) -> Dict[str, Any]:
     current_raw = response.Current()
     if current_raw is None:
         raise ValueError("Erro: Open-Meteo não retornou dados 'current'")
+    
+    current_raw = cast(Any, current_raw)
+
+    temp_var          = current_raw.Variables(0).Value()  # temperature_2m
+    humidity_var      = current_raw.Variables(1).Value()  # relative_humidity_2m
+    apparent_var      = current_raw.Variables(2).Value()  # apparent_temperature
+    is_day_var        = current_raw.Variables(3).Value()  # is_day (0/1)
+    precipitation_var = current_raw.Variables(4).Value()
 
     current = {
-        "temperature": current_raw.Variables(0).Value(),
-        "apparentTemperature": current_raw.Variables(0).Value(),
-        "humidity": current_raw.Variables(1).Value(),
-        "windspeed": current_raw.Variables(2).Value(),
-        "precipitation": 0.0,
+        "temperature": float(temp_var),
+        "apparentTemperature": float(apparent_var),
+        "humidity": float(humidity_var),
+        "windspeed": float(response.Current().Variables(0).Value()) if False else float(0),  # se quiser puxar wind_speed via current também, adiciona na lista
+        "precipitation": float(precipitation_var),
         "time": datetime.fromtimestamp(current_raw.Time(), tz=timezone.utc).isoformat(),
-        "isDay": bool(current_raw.IsDay()),
+        "isDay": bool(is_day_var),
     }
 
     # Dados horários
     hourly = response.Hourly()
     if hourly is None:
         raise ValueError("Erro: Open-Meteo não retornou dados 'hourly'")
+    hourly = cast(Any, hourly)
     times = pd.date_range(
         start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
         end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +20,26 @@ type WeatherIntake struct {
 	Hourly    []map[string]any `json:"hourly"`
 }
 
+func connectRabbitMQ(rabbitURL string) (*amqp.Connection, error) {
+	var conn *amqp.Connection
+	var err error
+
+	for i:= 0; i < 30; i++ {
+		conn, err = amqp.Dial(rabbitURL)
+
+		if err == nil {
+			log.Println("Connected to RabbitMQ")
+			return  conn, nil
+		}
+
+		log.Printf("⏳ Waiting for RabbitMQ... (attempt %d/30)", i+1)
+		time.Sleep(1 * time.Second)
+
+	}
+
+	return nil, err
+}
+
 func main() {
 	rabbitURL := os.Getenv("RABBITMQ_URL")
 	if rabbitURL == "" {
@@ -27,14 +48,16 @@ func main() {
 
 	apiURL := os.Getenv("NEST_API_URL")
 	if apiURL == "" {
-		apiURL = "http://weather-api:3000/api/weather/intake"
+		apiURL = "http://weather-api:3000/weather/intake"
 	}
 
-	conn, err := amqp.Dial(rabbitURL)
+	conn, err := connectRabbitMQ(rabbitURL)
+
 	if err != nil {
 		log.Fatalf("failed to connect to RabbitMQ: %v", err)
 	}
 	defer conn.Close()
+
 
 	ch, err := conn.Channel()
 	if err != nil {
@@ -103,14 +126,20 @@ func main() {
 			_ = delivery.Nack(false, true)
 			continue
 		}
-		resp.Body.Close()
+		defer resp.Body.Close()
+		respBody, _ := io.ReadAll(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			_ = delivery.Ack(false)
-			log.Println(" [x] Sent weather intake to Nest")
+				_ = delivery.Ack(false)
+				log.Printf(" [x] Sent weather intake to Nest. Nest response: %s", string(respBody))
+		} else if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+				log.Printf("Nest returned client error status %d, body: %s", resp.StatusCode, string(respBody))
+				_ = delivery.Nack(false, false)
 		} else {
-			log.Printf("Nest returned status %d", resp.StatusCode)
-			_ = delivery.Nack(false, true)
+				log.Printf("Nest returned server error status %d, body: %s", resp.StatusCode, string(respBody))
+				_ = delivery.Nack(false, true)
 		}
+
+
 	}
 }

@@ -6,7 +6,7 @@ import { currentWeatherSchema, hourlyWeatherPointSchema } from './weather.dto';
 export const weatherIntakeSchema = z.object({
   location: locationWithCoordsSchema,
   provider: z.string().default('open-meteo'),
-  requestedAt: z.iso.datetime(),
+  requestedAt: z.coerce.date(),
   current: currentWeatherSchema,
   hourly: z.array(hourlyWeatherPointSchema),
 });

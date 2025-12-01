@@ -16,13 +16,15 @@ import { Guardian } from '$/auth/guards/auth-guard/auth-guard.guard';
     ArgonModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_KEY'),
+        global: true,
+        secret: config.get<string>('JWT_KEY') || 'my-super-strong-kewy',
         signOptions: {
-          expiresIn: config.get<number>('JWT_EXPIRES_IN'),
+          expiresIn: config.get<number>('JWT_EXPIRES_IN') || '1h',
         },
+        httpOnly: true,
       }),
+      inject: [ConfigService],
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     forwardRef(() => UserModule),
