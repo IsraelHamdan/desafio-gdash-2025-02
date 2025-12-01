@@ -37,9 +37,31 @@ export class WeatherService {
     try {
       const cached = await this.findLocation(dto);
 
-      if (cached) return cached;
+      if (cached) {
+        return {
+          status: 'cached',
+          log: cached.log,
+        };
+      }
 
       await this.rabbit.sendToQueue(this.locationsQueue, { location: dto });
+
+      const maxWaitMs = 15000;
+      const pollIntervalMs = 1000;
+      const start = Date.now();
+
+      while (Date.now() - start < maxWaitMs) {
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+
+        const updated = await this.findLocation(dto);
+
+        if (updated) {
+          return {
+            status: 'cached',
+            log: updated.log,
+          };
+        }
+      }
 
       return { status: 'queued' };
     } catch (err) {
