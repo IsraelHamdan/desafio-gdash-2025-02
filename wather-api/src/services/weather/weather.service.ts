@@ -14,11 +14,11 @@ import {
 import { Model, MongooseError } from 'mongoose';
 import { Location, LocationDocument } from '$/schemas/weather/locations.schema';
 import { LocationDTO } from '$/DTO/weather/location.dto';
-import { WeatherIntakeDto } from '$/DTO/weather/weatherIntake.dto';
 import {
   WeatherLogDto,
   WeatherRequestResponseDto,
 } from '$/DTO/weather/weather.dto';
+import { WeatherIntakeDto } from '$/DTO/weather/weatherIntake.dto';
 
 @Injectable()
 export class WeatherService {
@@ -71,36 +71,6 @@ export class WeatherService {
       throw new InternalServerErrorException(err);
     }
   }
-
-  async handleIntake(dto: WeatherIntakeDto): Promise<WeatherLogDto> {
-    try {
-      const updatedLocation = await this.updateLocationDoc(dto);
-
-      if (!updatedLocation?._id)
-        throw new Error('Falha ao atualizar/criar Location');
-
-      const weatherLog = await this.weatherLog.create({
-        location: updatedLocation?._id,
-        provider: dto.provider,
-        requestedAt: new Date(dto.requestedAt),
-        current: {
-          ...dto.current,
-          time: dto.current.time,
-        },
-        hourly: dto.hourly.map((h) => ({ ...h, time: new Date(h.time) })),
-      });
-      return this.mapWeatherLogToDto(weatherLog);
-    } catch (err) {
-      if (err instanceof MongooseError) {
-        throw new MongooseError(err.message);
-      }
-      if (err instanceof NotFoundException)
-        throw new NotFoundException(err.message);
-
-      throw new InternalServerErrorException(err);
-    }
-  }
-
   async findLocation(
     data: LocationDTO,
   ): Promise<{ status: 'cached'; log: WeatherLogDto } | null> {
@@ -157,8 +127,7 @@ export class WeatherService {
       throw new InternalServerErrorException(err);
     }
   }
-
-  private async updateLocationDoc(
+    private async updateLocationDoc(
     dto: WeatherIntakeDto,
   ): Promise<LocationDocument | null> {
     try {
@@ -177,6 +146,38 @@ export class WeatherService {
       throw new InternalServerErrorException(err);
     }
   }
+
+
+    async handleIntake(dto: WeatherIntakeDto): Promise<WeatherLogDto> {
+    try {
+      const updatedLocation = await this.updateLocationDoc(dto);
+
+      if (!updatedLocation?._id)
+        throw new Error('Falha ao atualizar/criar Location');
+
+      const weatherLog = await this.weatherLog.create({
+        location: updatedLocation?._id,
+        provider: dto.provider,
+        requestedAt: new Date(dto.requestedAt),
+        current: {
+          ...dto.current,
+          time: dto.current.time,
+        },
+        hourly: dto.hourly.map((h) => ({ ...h, time: new Date(h.time) })),
+      });
+      return this.mapWeatherLogToDto(weatherLog);
+    } catch (err) {
+      if (err instanceof MongooseError) {
+        throw new MongooseError(err.message);
+      }
+      if (err instanceof NotFoundException)
+        throw new NotFoundException(err.message);
+
+      throw new InternalServerErrorException(err);
+    }
+  }
+
+
 
   private mapWeatherLogToDto(doc: WeatherLogDocument): WeatherLogDto {
     return {

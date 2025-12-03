@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 // src/schemas/weather-insight.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
@@ -12,7 +13,7 @@ export class WeatherInsight {
   location: Types.ObjectId | Location;
 
   @Prop({ required: true })
-  date: Date; 
+  date: Date;
 
   @Prop({
     type: {
@@ -48,4 +49,5 @@ export class WeatherInsight {
 }
 
 export type WeatherInsightDocument = WeatherInsight & Document;
-export const WeatherInsightSchema = SchemaFactory.createForClass(WeatherInsight);
+export const WeatherInsightSchema =
+  SchemaFactory.createForClass(WeatherInsight);

@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { z } from 'zod';
 
 export const weatherMetricsSchema = z.object({
@@ -10,7 +11,7 @@ export const weatherMetricsSchema = z.object({
 });
 
 export const weatherInsightSchema = z.object({
-  date: z.iso.datetime(),
+  date: z.date(),
   metrics: weatherMetricsSchema,
   summary: z.string(),
   clothingAdvice: z.string(),

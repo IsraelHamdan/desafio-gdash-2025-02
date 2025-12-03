@@ -10,6 +10,7 @@ import {
   WeatherLogSchema,
 } from '$/schemas/weather/weatherLog.schema';
 import { Location, LocSchema } from '$/schemas/weather/locations.schema';
+import { InsightsModule } from '../insights/insights.module';
 
 @Module({
   controllers: [WeatherController],
@@ -20,6 +21,7 @@ import { Location, LocSchema } from '$/schemas/weather/locations.schema';
       { name: WeatherLog.name, schema: WeatherLogSchema },
       { name: Location.name, schema: LocSchema },
     ]),
+    InsightsModule
   ],
 })
 export class WeatherModule {}

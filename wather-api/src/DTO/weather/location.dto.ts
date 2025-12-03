@@ -15,3 +15,5 @@ export const locationWithCoordsSchema = locationSchema.extend({
   lat: z.number(),
   lon: z.number(),
 });
+
+export type LocationCoords = z.infer<typeof locationWithCoordsSchema>
