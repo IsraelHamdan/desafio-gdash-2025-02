@@ -11,6 +11,7 @@ import {
 } from '$/schemas/weather/weatherLog.schema';
 import { Location, LocSchema } from '$/schemas/weather/locations.schema';
 import { InsightsModule } from '../insights/insights.module';
+import { WeatherInsight, WeatherInsightSchema } from '$/schemas/insights/insight.schema';
 
 @Module({
   controllers: [WeatherController],
@@ -20,6 +21,8 @@ import { InsightsModule } from '../insights/insights.module';
     MongooseModule.forFeature([
       { name: WeatherLog.name, schema: WeatherLogSchema },
       { name: Location.name, schema: LocSchema },
+      { name: WeatherInsight.name, schema: WeatherInsightSchema },
+
     ]),
     InsightsModule
   ],

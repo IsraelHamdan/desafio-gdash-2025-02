@@ -2,6 +2,7 @@
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -13,24 +14,42 @@ import {
 } from '$/schemas/weather/weatherLog.schema';
 import { Model, MongooseError } from 'mongoose';
 import { Location, LocationDocument } from '$/schemas/weather/locations.schema';
-import { LocationDTO } from '$/DTO/weather/location.dto';
+import { LocationDTO, LocationReturn } from '$/DTO/weather/location.dto';
 import {
   WeatherLogDto,
   WeatherRequestResponseDto,
 } from '$/DTO/weather/weather.dto';
 import { WeatherIntakeDto } from '$/DTO/weather/weatherIntake.dto';
+import { InsigthsService } from '$/services/insigths/insigths.service';
+
+
 
 @Injectable()
 export class WeatherService {
   private readonly locationsQueue: string = 'weather.locations';
-
+  private readonly logger: Logger = new Logger(WeatherService.name)
   constructor(
     private readonly rabbit: RabbitmqService,
     @InjectModel(WeatherLog.name)
     private readonly weatherLog: Model<WeatherLogDocument>,
     @InjectModel(Location.name)
     private readonly locationModel: Model<LocationDocument>,
+
+    private readonly insight: InsigthsService,
+
+
   ) {}
+
+  private buildLocationResponse(dto: LocationDTO, loc: { lat: number; lon: number }) {
+    return {
+      city: dto.city,
+      state: dto.state,
+      countryCode: dto.countryCode,
+      lat: loc.lat,
+      lon: loc.lon,
+    };
+  }
+
 
   // O cliente chama esse método! React -> Nest -> RabbitMQ -> Python
   async requestWeather(dto: LocationDTO): Promise<WeatherRequestResponseDto> {
@@ -38,9 +57,11 @@ export class WeatherService {
       const cached = await this.findLocation(dto);
 
       if (cached) {
+        const {location} = cached
         return {
           status: 'cached',
           log: cached.log,
+          location: this.buildLocationResponse(dto, location)
         };
       }
 
@@ -56,9 +77,11 @@ export class WeatherService {
         const updated = await this.findLocation(dto);
 
         if (updated) {
+          const {location} = updated
           return {
             status: 'cached',
             log: updated.log,
+            location: this.buildLocationResponse(dto, location)
           };
         }
       }
@@ -71,9 +94,11 @@ export class WeatherService {
       throw new InternalServerErrorException(err);
     }
   }
+
+
   async findLocation(
     data: LocationDTO,
-  ): Promise<{ status: 'cached'; log: WeatherLogDto } | null> {
+  ): Promise<LocationReturn | null> {
     try {
       const { countryCode, city, state } = data;
 
@@ -115,7 +140,12 @@ export class WeatherService {
               precipitation: h.precipitation,
             })),
           };
-          return { status: 'cached', log };
+          return { status: 'cached', log, location: {
+            _id: location._id,
+            lat: location.lat,
+            lon: location.lon
+          }
+         };
         }
       }
       return null;
@@ -127,7 +157,8 @@ export class WeatherService {
       throw new InternalServerErrorException(err);
     }
   }
-    private async updateLocationDoc(
+
+  private async updateLocationDoc(
     dto: WeatherIntakeDto,
   ): Promise<LocationDocument | null> {
     try {
@@ -148,7 +179,8 @@ export class WeatherService {
   }
 
 
-    async handleIntake(dto: WeatherIntakeDto): Promise<WeatherLogDto> {
+
+  async handleIntake(dto: WeatherIntakeDto): Promise<WeatherLogDto> {
     try {
       const updatedLocation = await this.updateLocationDoc(dto);
 
@@ -165,6 +197,7 @@ export class WeatherService {
         },
         hourly: dto.hourly.map((h) => ({ ...h, time: new Date(h.time) })),
       });
+
       return this.mapWeatherLogToDto(weatherLog);
     } catch (err) {
       if (err instanceof MongooseError) {

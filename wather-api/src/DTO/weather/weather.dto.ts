@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { z } from 'zod';
-import { weatherInsightSchema } from '../insights/insights.dto';
+import { locationWithCoordsSchema } from './location.dto';
 
 export const currentWeatherSchema = z.object({
   temperature: z.number(),
@@ -33,11 +33,12 @@ export const weatherRequestResponseSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('queued'),
     log: z.never().optional(),
+    location: z.never().optional()
   }),
   z.object({
     status: z.literal('cached'),
     log: weatherLogSchema,
-    insight: weatherInsightSchema.optional()
+    location: locationWithCoordsSchema
   }),
 ]);
 

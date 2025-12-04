@@ -8,6 +8,7 @@ import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RabbitmqModule } from './modules/rabbitmq/rabbitmq.module';
 import { WeatherModule } from './modules/weather/weather.module';
+import { InsightsModule } from './modules/insights/insights.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { WeatherModule } from './modules/weather/weather.module';
     AuthModule,
     RabbitmqModule,
     WeatherModule,
+    InsightsModule
   ],
   controllers: [AppController],
   providers: [AppService],

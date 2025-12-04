@@ -44,7 +44,6 @@ services:
         condition: service_healthy
       mongo:
         condition: service_started
-    command: npm run start:dev
 
   go-worker:
     build:

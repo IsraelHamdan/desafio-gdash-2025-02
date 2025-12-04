@@ -1,13 +1,16 @@
 /* eslint-disable prettier/prettier */
 import { WeatherInsightDto } from '$/DTO/insights/insights.dto';
 import { WeatherIntakeDto } from '$/DTO/weather/weatherIntake.dto';
+import { WeatherInsight, WeatherInsightDocument } from '$/schemas/insights/insight.schema';
 import {
   GenerateContentResult,
   GenerativeModel,
   GoogleGenerativeAI,
 } from '@google/generative-ai';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, MongooseError, Types } from 'mongoose';
 
 interface WeatherMetrics {
   minTemp: number;
@@ -38,7 +41,12 @@ export class InsigthsService {
   private model: GenerativeModel;
   private readonly isAIEnabled: boolean;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+      private readonly config: ConfigService,
+
+    @InjectModel(WeatherInsight.name)
+    private readonly weatherInsight: Model<WeatherInsightDocument>
+  ) {
     const apiKey: string = config.get<string>('GEMINI_API_KEY') || '';
 
     if (!apiKey) {
@@ -178,7 +186,6 @@ JSON:`;
         clothingDetails: aiResponse.clothingDetails,
         tags: aiResponse.tags,
       };
-
       return insight;
     } catch (err) {
       this.logger.error('Erro ao gerar insights de IA', err);
@@ -188,6 +195,77 @@ JSON:`;
       }
       const metrics: WeatherMetrics = this.calculateMetrics(data);
       return this.generateBasicInsights(data, metrics);
+    }
+  }
+
+  private async verifyValidateOfData( locationId: Types.ObjectId | string): Promise<WeatherInsightDto | null> {
+    try { 
+      const last = await this.weatherInsight
+        .findOne({location: locationId})
+        .sort({date: -1})
+        .exec()
+
+      if(!last) return null 
+      
+      const diffMs = Date.now() - new Date(last.date).getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      //🛑 So retorna o insight se tiver menos de 2h.
+      if(diffHours < 2) {
+        return {
+          date: new Date(last.date),
+          metrics: last.metrics,
+          summary: last.summary,
+          clothingAdvice: last.clothingAdvice,
+          clothingDetails: last.clothingDetails ?? [],
+          tags: last.tags ?? [],
+        }
+      } 
+
+
+      return null
+    }   
+     catch(err) {
+      this.logger.error(`Erro ao verificar a validade do insight: ${err}`)
+      if(err instanceof MongooseError) {
+        throw new MongooseError(err.message)
+      }
+      throw new InternalServerErrorException(err)
+    }
+  }
+
+
+  async getOrGenerateInsightForLocation(
+    intake: WeatherIntakeDto, 
+    locationId: Types.ObjectId | string,
+  ): Promise<WeatherInsightDto | null> {
+    try { 
+      const last = await this.verifyValidateOfData(locationId)
+
+      if(last) return last
+
+      const insight = await this.generateWeatherInsights(intake)
+      
+      await this.weatherInsight.create({
+        location: locationId,
+        date: insight.date ?? new Date(),
+        metrics: insight.metrics,
+        summary: insight.summary,
+        clothingAdvice: insight.clothingAdvice,
+        clothingDetails: insight.clothingDetails ?? [],
+        tags: insight.tags ?? [],
+      })
+
+      return insight
+
+    } 
+    catch(err) {
+      this.logger.error(`Falha ao salvar WeatherInsight: ${err}`)
+      if (err instanceof MongooseError) {
+        throw new MongooseError(err.message)
+      }
+      throw new InternalServerErrorException(err)
+
     }
   }
 

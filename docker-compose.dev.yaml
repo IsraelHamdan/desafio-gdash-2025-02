@@ -7,6 +7,8 @@ services:
       NODE_ENV: development
       PORT: "3000"
       MONGO_URI_DEV: mongodb://mongo:27017/gdash
+      CHOKIDAR_USEPOLLING: "true"         # faz fãs de watch usarem polling
+      CHOKIDAR_INTERVAL: "100" 
     ports:
       - "3000:3000"
     volumes:
@@ -84,3 +86,6 @@ services:
       - ./weather-dashboard/tsconfig.node.json:/app/tsconfig.node.json
       - ./weather-dashboard/components.json:/app/components.json
       - ./weather-dashboard/src/components:/app/src/components
+
+volumes:
+  node_modules:

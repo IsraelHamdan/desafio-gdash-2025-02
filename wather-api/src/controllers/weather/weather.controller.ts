@@ -13,6 +13,7 @@ import {
   Controller,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -23,7 +24,7 @@ export class WeatherController {
   private readonly logger = new Logger(WeatherController.name)
   constructor(
       private readonly weatherService: WeatherService,
-      private readonly insightService: InsigthsService
+      private readonly insightSerivice: InsigthsService
   ) {}
 
   @UseGuards(Guardian)
@@ -42,7 +43,7 @@ export class WeatherController {
     }
   }
 
-    @Post('intake')
+  @Post('intake')
   async intakeData(
     @Body(new ZodValidationPipe(weatherIntakeSchema)) data: WeatherIntakeDto,
   ) {
@@ -56,22 +57,23 @@ export class WeatherController {
     }
   }
 
+
   @UseGuards(Guardian)
   @Post('insight')
-  async requestInsight(
-    @Body(new ZodValidationPipe(locationSchema)) data: WeatherIntakeDto
-  ): Promise<WeatherInsightDto> {
+  async getInsight(
+    @Body(new ZodValidationPipe(weatherIntakeSchema)) data: WeatherIntakeDto
+  ): Promise<WeatherInsightDto | null > {
     try { 
-      const insight =this.insightService.generateWeatherInsights(data)
-      return await insight
+
+      return await this.insightSerivice.generateWeatherInsights(data)
     } catch(err) {
-      if (err instanceof BadRequestException) {
-        throw new BadRequestException(err.message);
-
+      this.logger.error(err)
+      if(err instanceof BadRequestException) {
+        throw new BadRequestException(err.message)
       }
-
-      this.logger.error('Erro gerando insight', err)
-      throw new InternalServerErrorException(err);
+      throw new InternalServerErrorException(err)
     }
   }
+
+
 }

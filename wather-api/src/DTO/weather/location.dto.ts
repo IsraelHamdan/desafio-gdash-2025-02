@@ -1,5 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { z } from 'zod';
+import { WeatherLogDto } from './weather.dto';
+import { Types } from 'mongoose';
 
 export const locationSchema = z.object({
   state: z.string().max(2, { message: 'somente a sigla do estado' }),
@@ -17,3 +19,14 @@ export const locationWithCoordsSchema = locationSchema.extend({
 });
 
 export type LocationCoords = z.infer<typeof locationWithCoordsSchema>
+
+
+export type LocationReturn = {
+  status: 'cached';
+  log: WeatherLogDto;
+  location: {
+    _id: Types.ObjectId;
+    lat: number;
+    lon: number;
+  };
+};
