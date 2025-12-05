@@ -23,9 +23,24 @@ async function bootstrap() {
     .getHttpAdapter()
     .getInstance()
     .addHook('onSend', (request, reply, payload, done) => {
+      const isBuffer = Buffer.isBuffer(payload);
+      const hasContentType = !!reply.getHeader('Content-Type');
+
+      // Se já existe Content-Type → não mexe
+      if (hasContentType) {
+        return done();
+      }
+
+      // Se é buffer → provavelmente BINÁRIO → não seta JSON
+      if (isBuffer) {
+        return done();
+      }
+
+      // Se é JSON ou objeto JS
       reply.header('Content-Type', 'application/json');
       done();
     });
+
 
   await app.register(cookie, {
     secret: process.env.COOKIE_SECRET ?? 'dev-cookie-secret',

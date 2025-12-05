@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { z } from 'zod';
 import { locationWithCoordsSchema } from './location.dto';
+import { weatherInsightSchema } from '../insights/insights.dto';
 
 export const currentWeatherSchema = z.object({
   temperature: z.number(),
@@ -22,7 +23,7 @@ export const hourlyWeatherPointSchema = z.object({
 
 export const weatherLogSchema = z.object({
   provider: z.string().default('open-meteo'),
-  requestedAt: z.date(),
+  requestedAt: z.coerce.date(),
   current: currentWeatherSchema,
   hourly: z.array(hourlyWeatherPointSchema).default([]),
 });
@@ -45,3 +46,14 @@ export const weatherRequestResponseSchema = z.discriminatedUnion('status', [
 export type WeatherRequestResponseDto = z.infer<
   typeof weatherRequestResponseSchema
 >;
+
+
+export const exportDataSchema = z.object({
+  log: weatherLogSchema.extend({requestedAt: z.coerce.date()}),
+  location: locationWithCoordsSchema,
+  insight: weatherInsightSchema.extend({
+    date: z.coerce.date()
+  }).optional().nullable()
+})
+
+export type ExportDataDTO = z.infer<typeof exportDataSchema>

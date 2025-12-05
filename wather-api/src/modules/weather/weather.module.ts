@@ -12,10 +12,12 @@ import {
 import { Location, LocSchema } from '$/schemas/weather/locations.schema';
 import { InsightsModule } from '../insights/insights.module';
 import { WeatherInsight, WeatherInsightSchema } from '$/schemas/insights/insight.schema';
+import { ExportModule } from '../export/export.module';
+import { ExportService } from '$/services/export/export.service';
 
 @Module({
   controllers: [WeatherController],
-  providers: [WeatherService, RabbitmqService],
+  providers: [WeatherService, RabbitmqService, ExportService],
   imports: [
     RabbitmqModule,
     MongooseModule.forFeature([
@@ -24,7 +26,9 @@ import { WeatherInsight, WeatherInsightSchema } from '$/schemas/insights/insight
       { name: WeatherInsight.name, schema: WeatherInsightSchema },
 
     ]),
-    InsightsModule
+    InsightsModule,
+    ExportModule
   ],
+  
 })
 export class WeatherModule {}
