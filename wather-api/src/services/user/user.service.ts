@@ -64,7 +64,7 @@ export class UserService {
       return this.mapToUserResponse(user);
     } catch (err) {
       if (err instanceof MongooseError) {
-        throw new MongooseError(`Erro ao buscar usuário: ${err}`);
+        throw new MongooseError(`Erro ao buscar usuário: ${err.message}`);
       }
       throw new InternalServerErrorException(
         `Erro interno do servidor ao buscar usuário: ${err}`,
@@ -82,7 +82,7 @@ export class UserService {
       return user;
     } catch (err) {
       if (err instanceof MongooseError) {
-        throw new MongooseError(`Erro ao buscar usuário: ${err}`);
+        throw new MongooseError(`Erro ao buscar usuário: ${err.message}`);
       }
       throw new InternalServerErrorException(
         `Erro interno do servidor ao buscar usuário: ${err}`,
@@ -98,7 +98,7 @@ export class UserService {
       return this.mapToUserResponse(user);
     } catch (err) {
       if (err instanceof MongooseError) {
-        throw new MongooseError(`Erro ao buscar usuário: ${err}`);
+        throw new MongooseError(`Erro ao buscar usuário: ${err.message}`);
       }
       throw new InternalServerErrorException(
         `Erro interno do servidor ao buscar usuário: ${err}`,
@@ -111,7 +111,7 @@ export class UserService {
       const users = await this.userModel.find().exec();
       return users.map((u) => this.mapToUserResponse(u));
     } catch (err) {
-      throw new InternalServerErrorException('Erro ao buscar usuários');
+      throw new InternalServerErrorException('Erro ao buscar usuários', err);
     }
   }
 
@@ -128,7 +128,7 @@ export class UserService {
       return this.mapToUserResponse(updatedUser);
     } catch (err) {
       if (err instanceof MongooseError) {
-        throw new MongooseError(`Erro ao buscar usuário: ${err}`);
+        throw new MongooseError(`Erro ao buscar usuário: ${err.message}`);
       }
       throw new InternalServerErrorException(
         `Erro interno do servidor ao buscar usuário: ${err}`,
@@ -159,7 +159,7 @@ export class UserService {
     } catch (err) {
       if (err instanceof MongooseError) throw new MongooseError(err.message);
 
-      throw new InternalServerErrorException(err.message);
+      throw new InternalServerErrorException(err);
     }
   }
 

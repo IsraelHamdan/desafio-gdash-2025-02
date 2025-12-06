@@ -1,16 +1,19 @@
-import { BadRequestException, Body, Controller, HttpException, InternalServerErrorException, Post, Res } from '@nestjs/common';
+/* eslint-disable prettier/prettier */
+import { Guardian } from '$/auth/guards/auth-guard/auth-guard.guard';
+import { BadRequestException, Body, Controller, Get, HttpException, InternalServerErrorException, Logger, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { FastifyError, FastifyReply } from 'fastify';
-import { JwtPayload } from 'src/auth/jwt.strategy';
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { AuthUser, JwtPayload } from 'src/auth/jwt.strategy';
 import { ZodValidationPipe } from 'src/commom/pipes/zod-validation.pipe';
 import { LoginUserDto } from 'src/DTO/user/login.dto';
-import { CreateUserDto, createUserSchema, UserResponse } from 'src/DTO/user/user.dto';
+import { CreateUserDto, createUserSchema } from 'src/DTO/user/user.dto';
 import { AuthService } from 'src/services/auth/auth.service';
 import { UserService } from 'src/services/user/user.service';
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name)
   constructor(
     private readonly service: AuthService,
     private readonly userService: UserService, 
@@ -41,6 +44,7 @@ export class AuthController {
       this.setCookie(res, accessToken)
       return { user, accessToken}
     } catch(err) {
+      this.logger.error(`Erro ao fazer login: ${err}`)
       if(err instanceof HttpException) {throw err}
 
       console.error(`Erro no login: ${err}`)
@@ -68,14 +72,25 @@ export class AuthController {
 
       return {user,accessToken}
     } catch(err) {
-      throw new BadRequestException(err.message)
+      this.logger.error(`Erro ao fazer o registro: ${err}`)
+      if(err instanceof BadRequestException)
+        throw new BadRequestException(err.message)
+
+      throw new InternalServerErrorException(err)
     }
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: FastifyReply) {
+  @UseGuards(Guardian)
+  logout(@Res({ passthrough: true }) res: FastifyReply) {
     res.clearCookie('access_token', { path: '/' });
-    return { message: 'Logged out' };
+    return  { message: 'Logged out' };
   }
 
+  @Get('me')
+  @UseGuards(Guardian)
+  me(@Req() req: FastifyRequest & { user: AuthUser }) {
+    return req.user
+  }
 }
+

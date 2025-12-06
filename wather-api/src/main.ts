@@ -17,7 +17,10 @@ async function bootstrap() {
 
   await app.register(helmet);
 
-  await app.register(cors, { origin: true, credentials: true });
+  await app.register(cors, 
+    { origin: 'http://localhost:5173', credentials: true }
+  );
+
 
   app
     .getHttpAdapter()

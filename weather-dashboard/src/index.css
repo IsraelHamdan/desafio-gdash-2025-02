@@ -5,6 +5,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Reset básico - mantém para evitar problemas */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -19,13 +37,13 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
+  --background: #ffffff;
+  --foreground: rgb(2, 6, 24);
+  --card: rgb(255, 255, 255);
   --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
+  --popover: rgb(255, 255, 255);
+  --popover-foreground: rgb(2, 6, 24);
+  --primary: rgb(15, 23, 43);
   --primary-foreground: oklch(0.984 0.003 247.858);
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
@@ -70,26 +88,12 @@
   }
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
   min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 button {
@@ -99,7 +103,6 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
   transition: border-color 0.25s;
 }
@@ -111,18 +114,6 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -160,6 +151,51 @@ button:focus-visible {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+
+  
+}
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+
+    /* Backgrounds */
+    --background: #f8fafc; /* slate-50 */
+    --card: #ffffff; /* white */
+    --popover: #ffffff; /* white */
+
+    /* Textos */
+    --foreground: #374151; /* gray-700 */
+    --card-foreground: #374151;
+    --popover-foreground: #374151;
+    --primary-foreground: #ffffff; /* texto dentro do botão primário */
+    --secondary-foreground: #111827; /* gray-900 */
+    --accent-foreground: #111827; /* gray-900 */
+
+    /* Headings */
+    --heading: #111827; /* gray-900 */
+
+    /* Botões primários */
+    --primary: #111827; /* gray-900 */
+    --primary-foreground: #ffffff;
+
+    /* Botões secundários (se quiser usar) */
+    --secondary: #f3f4f6; /* gray-100 */
+    --secondary-foreground: #111827;
+
+    /* Botões perigosos */
+    --destructive: #7f1d1d; /* red-900 */
+    --destructive-foreground: #ffffff;
+
+    /* Outros */
+    --muted: #f3f4f6; /* gray-100 */
+    --muted-foreground: #94a3b8; /* slate-400 → placeholder padrão */
+    --accent: #f3f4f6; /* gray-100 */
+    --border: #e5e7eb; /* gray-200 */
+    --input: #e5e7eb; /* gray-200 */
+    --ring: #6b7280; /* gray-500 */
+  }
 }
 
 .dark {
@@ -203,4 +239,9 @@ button:focus-visible {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+::view-transition-old(root), ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
 }

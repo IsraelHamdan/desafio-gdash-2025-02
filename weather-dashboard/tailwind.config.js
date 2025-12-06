@@ -13,8 +13,13 @@ export default {
         screens: {
           "2xl": "1400px",
         },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Poppins', 'system-ui', 'sans-serif'],
+        heading: ['Poppins', 'sans-serif'],
+      },
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };

@@ -1,6 +1,13 @@
-/* eslint-disable prettier/prettier */
-import { emailRegex, errorMessages, phoneRegex } from 'src/schemas/regex';
 import { z } from 'zod';
+import { emailRegex, errorMessages, phoneRegex } from './regex';
+
+export const loginUserSchema = z.object({
+  email: z.email(),
+  password: z.string().min(6),
+});
+
+export type LoginUserDto = z.infer<typeof loginUserSchema>;
+
 
 export const createUserSchema = z.object({
   name: z.string().min(2),
@@ -15,6 +22,11 @@ export const createUserSchema = z.object({
 });
 
 export type CreateUserDto = z.infer<typeof createUserSchema>;
+
+
+export const registerFormSchema = createUserSchema.omit({ role: true })
+
+export type RegisterFormValues = z.infer<typeof registerFormSchema>
 
 export const updateUserSchema = createUserSchema.partial().extend({
   isActive: z.boolean().optional()
