@@ -127,7 +127,7 @@ export class UserService {
 
       const updatedUser = await this.userModel.findByIdAndUpdate(
         id,
-        { $set: data },
+        { $set: updateData },
         { new: true },
       );
       if (!updatedUser) {
