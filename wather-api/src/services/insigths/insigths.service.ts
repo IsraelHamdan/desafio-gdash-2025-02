@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { WeatherInsightDto } from '$/DTO/insights/insights.dto';
+import { AIResponse, AIResponseSchema, WeatherInsightDto, WeatherMetrics } from '$/DTO/insights/insights.dto';
 import { WeatherIntakeDto } from '$/DTO/weather/weatherIntake.dto';
 import { WeatherInsight, WeatherInsightDocument } from '$/schemas/insights/insight.schema';
 import {
@@ -7,26 +7,12 @@ import {
   GenerativeModel,
   GoogleGenerativeAI,
 } from '@google/generative-ai';
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, MongooseError, Types } from 'mongoose';
-
-interface WeatherMetrics {
-  minTemp: number;
-  maxTemp: number;
-  avgTemp: number;
-  tempAmplitude: number;
-  willRain: boolean;
-  maxWindspeed: number;
-}
-
-interface AIResponse {
-  summary: string;
-  clothingAdvice: string;
-  clothingDetails: string[];
-  tags: string[];
-}
+import { Model, } from 'mongoose';
+import { calculateWeatherMetrics } from '$/services/insigths/weatherMetrics.utils';
+import { ZodError } from 'zod/v4';
 
 interface GoogleAPIError extends Error {
   status?: number;
@@ -61,113 +47,130 @@ export class InsigthsService {
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
-  private calculateMetrics(weatherData: WeatherIntakeDto) {
-    const temps: number[] = weatherData.hourly.map((h) => h.temperature);
-    const windspeeds: number[] = weatherData.hourly.map((h) => h.windspeed);
-    const precipitations: number[] = weatherData.hourly.map(
-      (h) => h.precipitation,
-    );
 
-    const minTemp = Math.min(...temps);
-    const maxTemp = Math.max(...temps);
-    const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
-    const tempAmplitude = maxTemp - minTemp;
-    const willRain = precipitations.some((p) => p > 0.1);
-    const maxWindspeed = Math.max(...windspeeds);
 
-    return {
-      minTemp: Math.round(minTemp * 10) / 10,
-      maxTemp: Math.round(maxTemp * 10) / 10,
-      avgTemp: Math.round(avgTemp * 10) / 10,
-      tempAmplitude: Math.round(tempAmplitude * 10) / 10,
-      willRain,
-      maxWindspeed: Math.round(maxWindspeed * 10) / 10,
-    };
-  }
 
   private buildPrompt(
-    weatherData: WeatherIntakeDto,
-    metrics: WeatherMetrics,
-  ): string {
-    const { current, location } = weatherData;
+      weatherData: WeatherIntakeDto,
+      metrics: WeatherMetrics,
+    ): string {
+      // Acessando o primeiro ponto do array 'daily' (o dia de hoje)
+      if (!weatherData.daily || weatherData.daily.length === 0) {
+        // Retorna uma mensagem de erro robusta
+        return 'Erro: Dados diários de previsão não disponíveis. Gere um aviso de clima desconhecido.';
+      }
+        
+      const dailyData = weatherData.daily[0];
+      const { current, location } = weatherData;
+      const { temperature, precipitation, wind } = metrics; // <--- AGORA USANDO precipitation e wind de METRICS
 
-    return `Você é um assistente meteorológico especializado em recomendar vestimentas adequadas.
+      // Conversores (assumindo segundos para horas, padrão do Open-Meteo)
+      const sunHours = (dailyData.sunshineDuration / 3600).toFixed(1);
+      const daylightHours = (dailyData.daylightDuration / 3600).toFixed(1);
+      const sunriseTime = new Date(dailyData.sunrise).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const sunsetTime = new Date(dailyData.sunset).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-Dados atuais de ${location.city}, ${location.state}:
-- Temperatura atual: ${current.temperature}°C (sensação térmica: ${current.apparentTemperature}°C)
-- Umidade: ${current.humidity}%
-- Velocidade do vento: ${current.windspeed} km/h
-- Precipitação: ${current.precipitation} mm
-- É dia: ${current.isDay ? 'Sim' : 'Não'}
+      return `Você é um Consultor Especialista em Sistemas Fotovoltaicos. 
+  Sua missão é gerar insights para dois públicos: o CONSUMIDOR FINAL (que precisa de dicas práticas de uso) e o TÉCNICO/ENGENHEIRO (que precisa de dados de eficiência).
 
-Métricas das próximas horas:
-- Temperatura mínima: ${metrics.minTemp}°C
-- Temperatura máxima: ${metrics.maxTemp}°C
-- Temperatura média: ${metrics.avgTemp}°C
-- Amplitude térmica: ${metrics.tempAmplitude}°C
-- Vai chover: ${metrics.willRain ? 'Sim' : 'Não'}
-- Vento máximo: ${metrics.maxWindspeed} km/h
+  Local: ${location.city}, ${location.state}
+  Condição Atual: ${current.isDay ? 'Dia (Janela de Geração Ativa)' : 'Noite (Geração Inativa)'}
 
-Com base nesses dados, gere um insight de vestimenta. Responda APENAS com um JSON válido no seguinte formato:
+  --- DADOS CRÍTICOS (METRICS + DAILY[0]) ---
 
-{
-  "summary": "Resumo do clima em 1-2 frases",
-  "clothingAdvice": "Conselho principal de vestimenta em 1 frase curta",
-  "clothingDetails": [
-    "Item 1 de roupa sugerido",
-    "Item 2 de roupa sugerido",
-    "Item 3 de roupa sugerido"
-  ],
-  "tags": ["tag1", "tag2", "tag3"]
-}
+  1. POTENCIAL DE GERAÇÃO SOLAR:
+    - Horas de Sol Pleno (Daily): ${sunHours}h (Principal fator de geração)
+    - Duração da Luz Total (Daily): ${daylightHours}h
+    - Janela de Geração (Daily): ${sunriseTime} até ${sunsetTime}
+    - UV Máximo (Metrics): ${metrics.radiation.uvIndexMax}
 
-Regras:
-- NÃO mencione marcas ou propagandas
-- Sugira apenas TIPOS de vestimentas (ex: "casaco leve", "camiseta", "guarda-chuva")
-- Tags devem ser simples (ex: "frio", "chuva", "vento_forte", "calor")
-- clothingDetails deve ter 3-5 itens
-- Seja objetivo e prático
+  2. EFICIÊNCIA E TEMPERATURA:
+    - Temperatura Máxima (Daily): ${dailyData.temperatureMax}°C (Sensação Máxima: ${dailyData.apparentTemperatureMax}°C)
+    - Amplitude Térmica (Metrics): ${temperature.amplitude}°C
 
-JSON:`;
+  3. CONDIÇÕES ADVERSAS E VENTO:
+    - Vai Chover (Metrics): ${precipitation.willRain ? 'Sim' : 'Não'} 
+    - Probabilidade Máxima (Daily): ${dailyData.precipitationProbabilityMax}%
+    - Chuva Acumulada (Daily): ${dailyData.rainSum}mm
+    - Total Precipitação (Metrics): ${precipitation.totalPrecipitation.toFixed(1)}mm
+    - Vento Máximo (Metrics): ${wind.maxSpeed10m.toFixed(1)} km/h
+    - Rajada Máxima (Daily): ${dailyData.windGusts10mMax} km/h (Efeito resfriamento)
+
+  INSTRUÇÕES DE ANÁLISE:
+  - A irradiação (Horas de Sol e UV) é o fator principal.
+  - Temp Máx > 30°C causa perda de eficiência (nota técnica).
+  - Vento Alto (Rajadas > 30 km/h) ajuda a mitigar a perda térmica por resfriamento.
+  - O campo 'consumerAdvice' deve ser prático (Ex: 'Ligar o ar-condicionado').
+
+  Responda APENAS com um JSON válido NO FORMATO SOLAR (campos de vestuário substituídos):
+  {
+    "summary": "Resumo amigável de 1-2 frases para o consumidor",
+    "productionForecast": "Previsão qualitativa de geração (use apenas: 'Muito Alta', 'Média' ou 'Baixa')",
+    "consumerAdvice": "Dica prática de consumo e economia (1-2 frases)",
+    "technicalNote": "Nota técnica para o engenheiro/instalador (mencione perdas, ganhos por irradiação e eficiência)",
+    "tags": ["tag_tecnica", "tag_consumo"]
+  }
+
+  Regras Específicas:
+  - productionForecast deve ser 'Muito Alta' se Horas de Sol Pleno > 6h e Temp Máx < 30°C.
+  - productionForecast deve ser 'Baixa' se Chuva Acumulada > 5mm OU se 'Vai Chover' for 'Sim' e Horas de Sol Pleno < 3h.
+
+  JSON:`;
   }
 
   private parseAIResponse(text: string): AIResponse {
-    try {
-      let cleaned = text.trim();
-      if (cleaned.startsWith('```json')) {
-        cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (cleaned.startsWith('```')) {
-        cleaned = cleaned.replace(/```\n?/g, '');
-      }
-      const parsed = JSON.parse(cleaned) as AIResponse;
-      if (!parsed.summary || !parsed.clothingAdvice) {
-        throw new Error('Resposta da IA incompleta');
-      }
+      try {
+        let cleaned = text.trim();
+        
+        if (cleaned.startsWith('```json')) {
+          cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+        } else if (cleaned.startsWith('```')) {
+          cleaned = cleaned.replace(/```\n?/g, '');
+        }
+        
+        const rawParsed:unknown = JSON.parse(cleaned);
 
-      return {
-        summary: parsed.summary,
-        clothingAdvice: parsed.clothingAdvice,
-        clothingDetails: parsed.clothingDetails || [],
-        tags: parsed.tags || [],
-      };
-    } catch (error) {
-      this.logger.error('Erro ao fazer parse da resposta da IA', error);
-      // Fallback
-      return {
-        summary: 'Não foi possível gerar resumo automático.',
-        clothingAdvice: 'Verifique a temperatura e vista-se adequadamente.',
-        clothingDetails: ['Roupa confortável', 'Calçado adequado'],
-        tags: ['clima_indefinido'],
-      };
-    }
+        const parsed = AIResponseSchema.parse(rawParsed); 
+
+        return {
+          summary: parsed.summary,
+          productionForecast: parsed.productionForecast,
+          consumerAdvice: parsed.consumerAdvice,
+          technicalNote: parsed.technicalNote || 'Dados técnicos adicionais não fornecidos pela IA.',
+          tags: parsed.tags || [],
+        };
+        
+      } catch (error) {
+        
+        let errorMessage: string;
+
+        if (error instanceof ZodError) {
+            errorMessage = `Erro de validação de Schema: ${error.message}`
+            this.logger.error(errorMessage, error);
+        } else if (error instanceof SyntaxError) {
+            errorMessage = 'Erro de sintaxe. A IA não retornou JSON formatado corretamente.';
+            this.logger.error(errorMessage, error);
+        } else {
+            errorMessage = 'Erro desconhecido durante o processamento da resposta da IA.';
+            this.logger.error(errorMessage, error);
+        }
+        
+        return {
+          summary: '⚠️ Análise automática indisponível. Erro no parse.',
+          productionForecast: 'Média', // Retorna um valor seguro
+          consumerAdvice: 'Monitore seu inversor. Não foi possível planejar o consumo.',
+          technicalNote: `Falha na validação dos dados da IA: ${errorMessage.substring(0, 100)}...`,
+          tags: ['erro_schema', 'fallback_seguro'],
+        };
+      }
   }
-
+  
   async generateWeatherInsights(
     data: WeatherIntakeDto,
   ): Promise<WeatherInsightDto> {
     this.validateWeatherData(data);
     try {
-      const metrics: WeatherMetrics = this.calculateMetrics(data);
+      const metrics: WeatherMetrics = calculateWeatherMetrics(data);
 
       //SE NÃO CONSEGUIR USAR A API_KEY CHAMAMOS UM FALLBACK, PARA GERAR OS DADOS CONDICIONALMENTE
       if (!this.isAIEnabled) {
@@ -180,11 +183,11 @@ JSON:`;
 
       const insight: WeatherInsightDto = {
         date: new Date(),
-        metrics,
         summary: aiResponse.summary,
-        clothingAdvice: aiResponse.clothingAdvice,
-        clothingDetails: aiResponse.clothingDetails,
-        tags: aiResponse.tags,
+        productionForecast: aiResponse.productionForecast,
+        consumerAdvice: aiResponse.consumerAdvice, 
+        technicalNote: aiResponse.technicalNote,
+        tags: aiResponse.tags || [],
       };
       return insight;
     } catch (err) {
@@ -193,85 +196,19 @@ JSON:`;
       if (this.isGoogleAPIError(err)) {
         this.logger.error(`Google API Error: ${err.message}`, err.stack);
       }
-      const metrics: WeatherMetrics = this.calculateMetrics(data);
+      const metrics: WeatherMetrics = calculateWeatherMetrics(data);
       return this.generateBasicInsights(data, metrics);
-    }
-  }
-
-  private async verifyValidateOfData( locationId: Types.ObjectId | string): Promise<WeatherInsightDto | null> {
-    try { 
-      const last = await this.weatherInsight
-        .findOne({location: locationId})
-        .sort({date: -1})
-        .exec()
-
-      if(!last) return null 
-      
-      const diffMs = Date.now() - new Date(last.date).getTime();
-      const diffHours = diffMs / (1000 * 60 * 60);
-
-      //🛑 So retorna o insight se tiver menos de 2h.
-      if(diffHours < 2) {
-        return {
-          date: new Date(last.date),
-          metrics: last.metrics,
-          summary: last.summary,
-          clothingAdvice: last.clothingAdvice,
-          clothingDetails: last.clothingDetails ?? [],
-          tags: last.tags ?? [],
-        }
-      } 
-
-
-      return null
-    }   
-     catch(err) {
-      this.logger.error(`Erro ao verificar a validade do insight: ${err}`)
-      if(err instanceof MongooseError) {
-        throw new MongooseError(err.message)
-      }
-      throw new InternalServerErrorException(err)
-    }
-  }
-
-
-  async getOrGenerateInsightForLocation(
-    intake: WeatherIntakeDto, 
-    locationId: Types.ObjectId | string,
-  ): Promise<WeatherInsightDto | null> {
-    try { 
-      const last = await this.verifyValidateOfData(locationId)
-
-      if(last) return last
-
-      const insight = await this.generateWeatherInsights(intake)
-      
-      await this.weatherInsight.create({
-        location: locationId,
-        date: insight.date ?? new Date(),
-        metrics: insight.metrics,
-        summary: insight.summary,
-        clothingAdvice: insight.clothingAdvice,
-        clothingDetails: insight.clothingDetails ?? [],
-        tags: insight.tags ?? [],
-      })
-
-      return insight
-
-    } 
-    catch(err) {
-      this.logger.error(`Falha ao salvar WeatherInsight: ${err}`)
-      if (err instanceof MongooseError) {
-        throw new MongooseError(err.message)
-      }
-      throw new InternalServerErrorException(err)
-
     }
   }
 
   private validateWeatherData(data: WeatherIntakeDto): void {
     if (!data.hourly || data.hourly.length === 0) {
       throw new BadRequestException('Dados horários não fornecidos ou vazios');
+    }
+
+    if(!data.daily) {
+      throw new BadRequestException('Dados diarios não fornecidos ou vazios');
+
     }
 
     if (!data.current) {
@@ -333,67 +270,102 @@ JSON:`;
     data: WeatherIntakeDto,
     metrics: WeatherMetrics,
   ): WeatherInsightDto {
-    const temp = metrics.avgTemp;
+  
+    if (!data.daily || data.daily.length === 0) {
+      return {
+          date: new Date(),
+          summary: 'Erro de dados: Previsão diária não encontrada.',
+          productionForecast: 'Baixa',
+          consumerAdvice: 'Sistema indisponível para análise. Verifique a fonte de dados.',
+          technicalNote: 'Array daily[0] está vazio.',
+          tags: ['erro_fatal'],
+      };
+    }
 
+    const dailyData = data.daily[0];
+    
+    // Variáveis solares-chave de DAILY (dados brutos de hoje)
+    const sunHoursToday = dailyData.sunshineDuration / 3600;
+    const uvMaxToday = dailyData.uvIndexMax; 
+    const tempMaxToday = dailyData.temperatureMax; 
+    const windGustsToday = dailyData.windGusts10mMax; 
+    
+    // Variáveis de MÉTRICAS (dados agregados/flags)
+    const avgSunshineHours = metrics.radiation.avgSunshineHours; 
+    const willRain = metrics.precipitation.willRain; 
+    const totalRain = metrics.precipitation.totalRain;
+    const maxTempAggregate = metrics.temperature.max; 
+    const maxWindSpeed = metrics.wind.maxSpeed10m;
+
+    // 2. NOVOS CAMPOS DE SAÍDA
     let summary = '';
-    let clothingAdvice = '';
-    let clothingDetails: string[] = [];
+    let productionForecast = '';
+    let consumerAdvice = '';
+    let technicalNote = '';
     let tags: string[] = [];
 
-    if (temp < 15) {
-      summary = 'Clima frio. Proteja-se bem.';
-      clothingAdvice = 'Vista roupas quentes e agasalhos.';
-      clothingDetails = [
-        'Casaco pesado',
-        'Calça comprida',
-        'Cachecol',
-        'Luvas (opcional)',
-      ];
-      tags = ['frio', 'agasalho'];
-    } else if (temp < 25) {
-      summary = 'Clima ameno e agradável.';
-      clothingAdvice = 'Roupas leves são suficientes.';
-      clothingDetails = [
-        'Camiseta',
-        'Calça leve ou jeans',
-        'Tênis',
-        'Jaqueta leve (opcional)',
-      ];
-      tags = ['ameno', 'confortavel'];
-    } else {
-      summary = 'Clima quente. Hidrate-se bem.';
-      clothingAdvice = 'Use roupas frescas e leves.';
-      clothingDetails = [
-        'Camiseta leve',
-        'Bermuda ou calça leve',
-        'Chinelo ou tênis respirável',
-        'Boné ou chapéu',
-        'Óculos de sol',
-      ];
-      tags = ['calor', 'hidratacao', 'protecao_solar'];
+    // 3. LÓGICA DE DECISÃO SOLAR
+
+    // CENÁRIO 1: Geração Baixa (Chuva ou Sol Mínimo) 🌧️
+    if (willRain || sunHoursToday < 3 || avgSunshineHours < 4) {
+      summary = 'Dia com pouca irradiação solar. Geração será limitada.';
+      productionForecast = 'Baixa';
+      consumerAdvice = 'A produção será mínima. **Evite usar grandes eletrodomésticos** para depender menos da rede elétrica.';
+      technicalNote = `Irradiação fraca (UV Máx: ${uvMaxToday}). Horas de Sol Hoje (${sunHoursToday.toFixed(1)}h) muito abaixo da média (${avgSunshineHours.toFixed(1)}h). Total de chuva: ${totalRain.toFixed(1)}mm. Flag 'willRain' ativada.`;
+      tags = ['baixa_geracao', 'economia_energia'];
+      
+      if (totalRain > 2) {
+          technicalNote += ' Chuva prevista para autolimpeza dos módulos.';
+          tags.push('autolimpeza');
+      }
+    } 
+    
+    // CENÁRIO 2: Geração Alta (Sol Forte) ☀️
+    else if (uvMaxToday >= 6 && sunHoursToday >= 5) {
+        
+      // Sub-Cenário 2A: Sol Forte + Calor Extremo (> 30°C)
+      if (maxTempAggregate > 30) {
+        summary = 'Muito sol! A geração será alta, mas a eficiência térmica cairá.';
+        productionForecast = 'Alta';
+        consumerAdvice = 'Pode usar aparelhos de alto consumo. **Priorize ligar o Ar-Condicionado** ou o aquecedor de piscina no pico (11h-15h).';
+        technicalNote = `Alta irradiação (UV: ${uvMaxToday}). Perdas devido ao coeficiente de temperatura (Temp Máx Agregada: ${maxTempAggregate.toFixed(1)}°C; Temp Painel: ${tempMaxToday.toFixed(1)}°C).`;
+        tags = ['alta_geracao', 'perda_termica', 'pode_gastar'];
+      } 
+        
+      // Sub-Cenário 2B: Sol Forte + Temperatura Agradável (< 30°C)
+      else {
+        summary = 'O dia perfeito para a sua usina solar! Máxima eficiência esperada.';
+        productionForecast = 'Muito Alta';
+        consumerAdvice = '**Carregue seus dispositivos e use máquinas pesadas agora** para aproveitar o excedente de energia.';
+        technicalNote = `Condições ideais. Alta irradiação (UV: ${uvMaxToday}) e temperatura controlada. Horas de sol superior à média (${avgSunshineHours.toFixed(1)}h).`;
+        tags = ['pico_maximo', 'eficiencia_ideal', 'excedente_energia'];
+      }
+    } 
+    
+    // CENÁRIO 3: Geração Média (Sol Moderado/Inverno) 🌤️
+    else {
+      summary = 'Geração solar moderada e estável.';
+      productionForecast = 'Média';
+      consumerAdvice = 'Consumo normal. Evite ligar dois grandes aparelhos simultaneamente no mesmo horário.';
+      technicalNote = `Geração estável. Irradiação (UV: ${uvMaxToday}) e horas de sol (${sunHoursToday.toFixed(1)}h) dentro da média esperada.`;
+      tags = ['producao_normal', 'estabilidade'];
     }
 
-    // Adiciona itens extras baseado em condições
-    if (metrics.willRain) {
-      clothingDetails.push('Guarda-chuva ou capa de chuva');
-      tags.push('chuva');
+    // 4. AJUSTES FINAIS BASEADOS EM VENTO (USANDO AMBOS DAILY E METRICS)
+    if (windGustsToday > 30 || maxWindSpeed > 25) {
+      technicalNote += ` Vento forte (Máx Média: ${maxWindSpeed.toFixed(1)} km/h; Rajada: ${windGustsToday.toFixed(1)} km/h) ajudando ativamente no resfriamento dos painéis.`;
+      if (!tags.includes('perda_termica')) {
+          tags.push('ganho_vento');
+      }
     }
-
-    if (metrics.maxWindspeed > 30) {
-      clothingDetails.push('Jaqueta corta-vento');
-      tags.push('vento_forte');
-    }
-
-    if (data.current.humidity > 80) {
-      tags.push('umidade_alta');
-    }
-
+    
+    // 5. RETORNO DO NOVO DTO
     return {
       date: new Date(),
-      metrics,
       summary,
-      clothingAdvice,
-      clothingDetails,
+      productionForecast,
+      consumerAdvice,
+      technicalNote,
       tags,
     };
   }

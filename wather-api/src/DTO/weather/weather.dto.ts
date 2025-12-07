@@ -83,9 +83,6 @@ export type WeatherRequestResponseDto = z.infer<
 export const exportDataSchema = z.object({
   log: weatherLogSchema.extend({requestedAt: z.coerce.date()}),
   location: locationWithCoordsSchema,
-  insight: weatherInsightSchema.extend({
-    date: z.coerce.date()
-  }).optional().nullable()
 })
 
 export type ExportDataDTO = z.infer<typeof exportDataSchema>
