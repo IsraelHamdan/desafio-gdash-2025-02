@@ -1,6 +1,5 @@
 import {
   formatPhoneInput,
-  formatDateOnly, 
   cepMask,
   unmaskCep
 } from "@/lib/utils";
@@ -53,9 +52,7 @@ export const FormInput: React.FC<props> = ({
     type === "date" && rawValue instanceof Date && !isNaN(rawValue.getTime())
       ? rawValue.toISOString().split("T")[0]
       : type === "cpf"
-      ? cpfMask(rawValue)
-      : type === "price"
-      ? priceMask(Number(rawValue))
+      ? formatPhoneInput(rawValue)
       : type === "cep"
       ? cepMask(rawValue)
       : rawValue;

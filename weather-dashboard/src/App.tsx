@@ -19,7 +19,7 @@ function App() {
             path='/'
             element={
               status === 'authenticated' 
-                ? <Navigate to= 'app' replace/>
+                ? <Navigate to='/app/dashboard' replace/>
                 : <AuthPage/>
             }
           />
@@ -29,9 +29,11 @@ function App() {
             <PrivateLayout/>
           </ProtectedRoute>
         } >
-          <Route path='/dashboard' element={<DashboardPage/>}/>
-          <Route path='app/profile' element={<ProfilePage/>}/>
+          <Route path="/app" element={<Navigate to="/app/dashboard" replace />} />
+          <Route path="/app/dashboard" element={<DashboardPage />} />
+          <Route path="/app/profile" element={<ProfilePage />} />
         </Route>
+        
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

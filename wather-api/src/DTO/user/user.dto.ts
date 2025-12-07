@@ -18,7 +18,7 @@ export type CreateUserDto = z.infer<typeof createUserSchema>;
 
 export const updateUserSchema = createUserSchema.partial().extend({
   isActive: z.boolean().optional()
-})
+}).omit({role: true})
 
 export type UpdateUserDto = z.infer<typeof updateUserSchema>
 

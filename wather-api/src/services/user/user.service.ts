@@ -45,7 +45,7 @@ export class UserService {
       return this.mapToUserResponse(saved);
     } catch (err) {
       if (err instanceof MongooseError) {
-        throw new MongooseError(`Erro do Mongo ao criar um usuário: ${err}`);
+        throw new MongooseError(`Erro do Mongo ao criar um usuário: ${err.message}`);
       }
       throw new InternalServerErrorException(
         `Erro interno do servidor ao crirar usuário: ${err}`,
@@ -117,6 +117,14 @@ export class UserService {
 
   async update(data: UpdateUserDto, id: string): Promise<UserResponse> {
     try {
+
+      const updateData: UpdateUserDto = { ...data }
+      
+      if(data.password) {
+        const hashedPassowrd = await this.argon.hashPassowrd(data.password)
+        updateData.password = hashedPassowrd
+      }
+
       const updatedUser = await this.userModel.findByIdAndUpdate(
         id,
         { $set: data },
@@ -151,7 +159,6 @@ export class UserService {
 
   async hardDelete(id: string): Promise<void> {
     try {
-      const user = await this.findById(id);
       const result = await this.userModel.deleteOne({ _id: id }).exec();
       if (!result) {
         throw new NotFoundException('Usuário não encontrado para deletar');
@@ -178,6 +185,26 @@ export class UserService {
       if (err instanceof NotFoundException) throw err;
       console.error('Erro ao desativar usuário:', err);
       throw new InternalServerErrorException('Erro ao desativar usuário');
+    }
+  }
+  
+  async reactivate(id: string): Promise<UserResponse> {
+    try { 
+      const updated = await this.userModel.
+        findByIdAndUpdate(
+          id, { $set: { isActive: true } }, { new: false }
+        )
+        
+      if (!updated) {
+        throw new NotFoundException('Usuário não encontrado para desativar');
+      }
+
+      return this.mapToUserResponse(updated)
+    } catch(err) {
+      if(err instanceof MongooseError) {
+        throw new MongooseError(err.message)
+      }
+      throw new InternalServerErrorException(err)
     }
   }
 }

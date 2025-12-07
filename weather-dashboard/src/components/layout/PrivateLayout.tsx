@@ -1,23 +1,16 @@
-import { useAuth } from '@/contexts/authContext';
 import { Outlet, Link } from 'react-router-dom'
+import SidebarComponent from '../sidebar';
 
 export function PrivateLayout() {
-  const { user, logout } = useAuth()
 
   return (
-    <div>
-      <header>
-        <nav>
-          <Link to="/">Dashboard</Link>
-          {/* outras rotas */}
-          <div style={{ float: 'right' }}>
-            {user?.email}
-            <button onClick={logout}>Sair</button>
-          </div>
-        </nav>
-      </header>
+    <div className="flex min-h-screen w-full bg-slate-50">
+      <SidebarComponent />
 
-      <main>
+      {/* Linha vertical separadora */}
+      <div className="w-px bg-slate-300" />
+
+      <main className="flex-1 overflow-y-auto p-3">
         <Outlet />
       </main>
     </div>

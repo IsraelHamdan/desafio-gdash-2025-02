@@ -13,15 +13,20 @@ export const formStyle = {
     "w-full h-[54px] rounded-md border border-gray-300 bg-white px-4 py-4 text-gray-700 placeholder:text-gray-400 " +
     "focus:outline-none focus:ring-2 focus:border-transparent",
 
-  labelBase: 'font-semibold',
+  labelBase: 'font-semibold mt-5',
 
   errorBorder: "border-red-500 focus:ring-red-500",
   errorMessage: "text-red-500 text-sm mt-1",
 
   forgotPassword: "text-sm font-semibold text-red-600 self-start",
 
+  alertContent:
+    "fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 " +
+    "rounded-lg border bg-white p-6 shadow-lg",
+
+
   submitButton:
-    "w-full rounded-md bg-[#1e2939] text-white text-lg font-bold py-4 hover:opacity-90 disabled:opacity-60 mt-10",
+    "inline-flex items-center justify-center rounded-md bg-slate-900 px-6 py-2 text-sm font-semibold text-white disabled:opacity-60",
 };
 
 export const tableStyle = {

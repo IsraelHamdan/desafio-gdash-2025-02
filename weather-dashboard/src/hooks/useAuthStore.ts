@@ -14,21 +14,21 @@ export interface AuthState {
   login: (input: LoginUserDto) => Promise<UserResponse>
   register: (input: CreateUserDto) => Promise<UserResponse>
   logout: () => Promise<void>
+  setUser: (user: UserResponse) => void
 }
 
 
 export const useAuthStore = create<AuthState>()(
   devtools((set) => ({
-    status: 'checking', 
+    status: 'checking',
     user: null,
 
     async bootstrap() {
       set({ status: 'checking' })
 
       try {
-        const { data } = await api.get('/auth/me')
-
-        const user = data as UserResponse
+        const res = await api.get<UserResponse>('/auth/me')
+        const user = res.data
 
         set({
           user,
@@ -43,57 +43,70 @@ export const useAuthStore = create<AuthState>()(
     },
 
     async login(input: LoginUserDto) {
-      console.info('Cheguei')
-      try { 
-        const {data} = await api.post<UserResponse>('auth/login', input)
-        
-        const user = data ?? data
-        console.log(data)
-
-        set({user, status: 'authenticated'})
-
-      } catch(err) {
-        if(err instanceof AxiosError) {
-          throw new AxiosError(err.message)
+      try {
+        const res = await api.post<UserResponse>('/auth/login', input)
+        const user = res.data
+        set({
+          user,
+          status: 'authenticated',
+        })
+      } catch (err) {
+        if (err instanceof AxiosError) {
+          console.error('Erro no login:', err.response?.data ?? err.message)
+        } else {
+          console.error(err)
         }
-        console.log(err)
+
+        // garante estado coerente num erro de login
+        set({
+          user: null,
+          status: 'unauthenticated',
+        })
+
+        throw err
       }
     },
 
     async register(input: CreateUserDto) {
-      try { 
-            const {data} = await api.post<UserResponse>('auth/register', input)
+      try {
+        const res = await api.post<UserResponse>('/auth/register', input)
+        const user = res.data
 
-      const user = data ?? data
-
-      set({
-        user,
-        status: 'authenticated'
-      })
-      } catch(err) {
-        if(err instanceof AxiosError) { 
-          throw new AxiosError(err.message)
+        set({
+          user,
+          status: 'authenticated',
+        })
+      } catch (err) {
+        if (err instanceof AxiosError) {
+          console.error('Erro no cadastro:', err.response?.data ?? err.message)
+        } else {
+          console.error(err)
         }
-        console.log(err)
+
+        set({
+          user: null,
+          status: 'unauthenticated',
+        })
+
+        throw err
       }
     },
 
     async logout() {
-      try { 
-        await api.post('auth/logout')
-      } catch(err) {
-        if(err instanceof AxiosError) { 
-          throw new AxiosError(err.message)
+      try {
+        await api.post('/auth/logout')
+      } catch (err) {
+        if (err instanceof AxiosError) {
+          console.error('Erro no logout:', err.response?.data ?? err.message)
+        } else {
+          console.error(err)
         }
       } finally {
         set({
-          user: null, 
-          status: 'unauthenticated'
+          user: null,
+          status: 'unauthenticated',
         })
       }
-    }
-
-  }))
-
-
+    },
+  })),
 )

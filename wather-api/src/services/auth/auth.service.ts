@@ -21,14 +21,12 @@ export class AuthService {
   ) {}
 
   async validateUser(data: LoginUserDto): Promise<UserDocument> {
-    console.log('🚀 ~ AuthService ~ validateUser ~ data:', data);
     try {
       const user = await this.userService.findUserByEmail(data.email);
 
       if (!user) {
         throw new NotFoundException(`Credenciais Inválidas`);
       }
-      console.log('🚀 ~ AuthService ~ validateUser ~ user:', user);
 
       const isValid = await this.argon.verifyPassword(
         user.password,
@@ -54,11 +52,14 @@ export class AuthService {
   async login(
     data: LoginUserDto,
   ): Promise<{ user: UserResponse; accessToken: string }> {
-    console.log('🚀 ~ AuthService ~ login ~ data:', data);
     try {
       const userEntity = await this.validateUser(data);
       const user = this.userService.mapToUserResponse(userEntity);
-
+     
+      if(user.isActive === false) {
+        throw new UnauthorizedException('Usuário não autorizado')
+      } 
+      
       const payload = {
         sub: user.id.toString(),
         email: user.email,

@@ -5,39 +5,40 @@ import {
   useContext,
   useEffect,
   type ReactNode,
-} from 'react'
+} from 'react';
 
 
-type AuthContextValue = AuthState
+type AuthContextValue = AuthState;
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 interface AuthProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const auth = useAuthStore()
+  const auth = useAuthStore();
+  const bootstrap = useAuthStore((s) => s.bootstrap);
 
   useEffect(() => {
-    auth.bootstrap()
-  }, [])
+    bootstrap();
+  }, []);
 
   if (auth.status === 'checking') {
-    return <Tipography variant='h2'>Carregando seção</Tipography>
+    return <Tipography variant='h2'>Carregando seção</Tipography>;
   }
 
   return (
     <AuthContext.Provider value={auth}>
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext)
+  const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error('useAuth deve ser usado dentro de AuthProvider')
+    throw new Error('useAuth deve ser usado dentro de AuthProvider');
   }
-  return ctx
+  return ctx;
 }

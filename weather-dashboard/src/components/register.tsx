@@ -2,34 +2,32 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { createSchemaFieldValidators } from "@/lib/validationForm";
 import { formStyle } from "@/tailwindGlobal";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "./ui/input";
 import { registerFormSchema } from "@/lib/validations/auth.dto";
 
 export default function RegisterComponent() {
-  const {register} = useAuthStore() 
+  const { register } = useAuthStore();
   const getValidation = createSchemaFieldValidators(registerFormSchema);
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = location.state?.from?.pathname || '/'
+  const navigate = useNavigate();
 
   const form = useForm({
     defaultValues: {
       name: '',
-      email: '', 
+      email: '',
       password: '',
       phone: '',
     },
 
-    validationLogic: revalidateLogic(), 
+    validationLogic: revalidateLogic(),
 
     validators: {
       onDynamic: registerFormSchema
     },
-    
-    onSubmit: async ({value}) => {
-      const result = registerFormSchema.safeParse(value)
+
+    onSubmit: async ({ value }) => {
+      const result = registerFormSchema.safeParse(value);
 
       if (!result.success) {
         toast.error("Corrija os erros nos campos");
@@ -39,16 +37,16 @@ export default function RegisterComponent() {
           return map;
         }, {} as Record<string, string>);
       }
-      await register(value)
-      navigate(from, {replace: true})
+      await register(value);
+      navigate('/app/dashboard', { replace: true });
     }
-  })
+  });
 
   return (
-    <form 
+    <form
       onSubmit={(e) => {
-        e.preventDefault()
-        form.handleSubmit()
+        e.preventDefault();
+        form.handleSubmit();
       }}
       className={formStyle.formContainer} >
       <div className={formStyle.inputWrapper}>
@@ -152,5 +150,5 @@ export default function RegisterComponent() {
         )}
       </form.Subscribe>
     </form>
-  )
+  );
 }

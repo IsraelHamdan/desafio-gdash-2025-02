@@ -37,7 +37,6 @@ export class AuthController {
       @Body() data: LoginUserDto, 
       @Res({passthrough: true}) res: FastifyReply 
   ) {
-      console.log("🚀 ~ AuthController ~ login ~ data:", data)
     try { 
       const {user, accessToken} = await this.service.login(data)
 
@@ -89,8 +88,17 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(Guardian)
-  me(@Req() req: FastifyRequest & { user: AuthUser }) {
-    return req.user
+  async me(@Req() req: FastifyRequest & { user: AuthUser }) {
+    const userId = req.user.userId
+    const user = await this.userService.findById(userId)
+
+     return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone
+   }
   }
 }
 

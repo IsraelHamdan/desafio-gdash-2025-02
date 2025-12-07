@@ -29,8 +29,8 @@ export const registerFormSchema = createUserSchema.omit({ role: true })
 export type RegisterFormValues = z.infer<typeof registerFormSchema>
 
 export const updateUserSchema = createUserSchema.partial().extend({
-  isActive: z.boolean().optional()
-})
+  isActive: z.boolean().optional(),
+}).omit({role: true})
 
 export type UpdateUserDto = z.infer<typeof updateUserSchema>
 
@@ -40,3 +40,14 @@ export const userResponse =createUserSchema.extend({
 }).omit({ password: true }) 
 
 export type UserResponse = z.infer<typeof userResponse>
+
+export const profileFormSchema = z.object({
+  name: z.string().min(2, {message: "Nome muito curto, deve ter no mínimo 2 caracteres"}),
+  email: z.email({message: "Formato de email incorreto"}),
+
+  phone: z.string().min(8, {message: "Telefone muito curto, use o formato indicado"}),
+  isActive: z.boolean(),
+})
+
+export type ProfileFormValues = z.infer<typeof profileFormSchema>
+

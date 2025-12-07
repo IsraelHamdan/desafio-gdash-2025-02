@@ -1,9 +1,10 @@
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { FastifyRequest } from 'fastify';
+/* eslint-disable prettier/prettier */
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, InternalServerErrorException, Logger, Param, Patch, Req, Res, UseGuards } from '@nestjs/common';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { Guardian } from '$/auth/guards/auth-guard/auth-guard.guard';
 import { AuthUser} from '$/auth/jwt.strategy';
 import { ZodValidationPipe } from '$/commom/pipes/zod-validation.pipe';
-import { UpdateUserDto, updateUserSchema } from '$/DTO/user/user.dto';
+import { UpdateUserDto, updateUserSchema, UserResponse } from '$/DTO/user/user.dto';
 import { RolesGuard } from '$/auth/guards/role/role.guard';
 import { UserService } from '$/services/user/user.service';
 import { Roles } from '$/auth/decorators/roles.decorators';
@@ -13,6 +14,7 @@ type FastifyRequestWithUser = FastifyRequest & { user: AuthUser };
 @UseGuards(Guardian)
 @Controller('user')
 export class UserController {
+  private readonly logger = new Logger(UserController.name)
   constructor(
     private readonly userService: UserService, 
   ) {}
@@ -22,7 +24,12 @@ export class UserController {
     try { 
       return await this.userService.findById(id)
     } catch(err) {
-      throw new BadRequestException(err.message)
+      this.logger.error(`Erro ao buscar pelo Id: ${err}`)
+      if(err instanceof BadRequestException)
+        throw new BadRequestException(err)
+
+      throw new InternalServerErrorException(err)
+
     }
   }
 
@@ -33,7 +40,11 @@ export class UserController {
     try { 
       return this.userService.findByEmail(email)
     } catch(err) {
-      throw new BadRequestException(err.message)
+      this.logger.error(`Erro ao buscar pelo email: ${err}`)
+      if(err instanceof BadRequestException)
+        throw new BadRequestException(err)
+
+      throw new InternalServerErrorException(err)
     }
   }
 
@@ -49,7 +60,11 @@ export class UserController {
       }
       return await this.userService.findAll()
     } catch(err) {
-      throw new BadRequestException(err.message);
+      this.logger.error(`Erro ao buscar todos os usuários: ${err}`)
+      if(err instanceof BadRequestException)
+        throw new BadRequestException(err)
+
+      throw new InternalServerErrorException(err)
     }
   }
 
@@ -62,13 +77,21 @@ export class UserController {
     try { 
       return await this.userService.update(body, id)
     } catch(err) {
-      throw new BadRequestException(err.message)
+      this.logger.error(`Erro ao atualizar o usuário: ${err}`)
+      if(err instanceof BadRequestException)
+        throw new BadRequestException(err)
+
+      throw new InternalServerErrorException(err)
     }
   }
 
   @UseGuards(RolesGuard)
   @Delete('delete/:id')
-  async delete(@Param('id') id: string, @Req() req: FastifyRequestWithUser) {
+  async delete(
+      @Param('id') id: string, 
+      @Req() req: FastifyRequestWithUser,
+      @Res({passthrough: true}) res: FastifyReply
+  ) {
     try { 
       const user = req.user 
 
@@ -78,6 +101,7 @@ export class UserController {
         }
 
         await this.userService.hardDelete(id);
+        
         return { message: 'Usuário deletado permanentemente (admin)' };
       }
 
@@ -87,13 +111,40 @@ export class UserController {
       }
 
       const updated = await this.userService.deactivate(id);
+      res.clearCookie('acess_token', {
+        path:'/',
+        httpOnly: true
+      })
       return {
         message: 'Usuário desativado (isActive = false)',
         user: updated,
       };     
         
     } catch(err) {
-      throw new BadRequestException(err.message)
+      this.logger.error(`Erro ao deletar o usuário: ${err}`)
+      
+      if(err instanceof BadRequestException)
+        throw new BadRequestException(err)
+
+      throw new InternalServerErrorException(err)
+    }
+  }
+
+  @UseGuards(RolesGuard)
+  @Patch('reactivate/:id')
+  async reactivate(
+    @Param('id') id: string
+  ): Promise<UserResponse> {
+    try { 
+      return await this.userService.reactivate(id)
+    } catch(err) {
+      this.logger.error(`Erro ao reativar usuário: ${err}`)
+
+      if(err instanceof BadRequestException)
+        throw new BadRequestException(err)
+
+      throw new InternalServerErrorException(err)
+
     }
   }
 }
