@@ -1,7 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { z } from 'zod';
 import { locationWithCoordsSchema } from './location.dto';
-import { weatherInsightSchema } from '../insights/insights.dto';
 
 export const currentWeatherSchema = z.object({
   temperature: z.number(),

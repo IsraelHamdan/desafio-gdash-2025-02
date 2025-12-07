@@ -1,10 +1,10 @@
 import { api } from "@/lib/api";
-import type { UpdateUserDto, UserResponse } from "@/lib/validations/auth.dto";
+import type { UpdateUserClientDto, UpdateUserDto, UserResponse } from "@/lib/validations/auth.dto";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthenticatedUser } from "./helpers";
 
 
-const patchUser = async (userId: string, data: UpdateUserDto): Promise<UserResponse> => {
+const patchUser = async (userId: string, data: UpdateUserClientDto): Promise<UserResponse> => {
   const { data: user } = await api.patch<UserResponse>(`/user/update/${userId}`, data)
   return user
 }
@@ -20,6 +20,7 @@ const reactivateUser = async (userId: string): Promise<UserResponse> => {
   const { data } = await api.patch<UserResponse>(`/user/reactivate/${userId}`)
   return data
 }
+
 
 export default function useUser() {
   const queryClient = useQueryClient()

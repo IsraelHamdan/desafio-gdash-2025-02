@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import useUser from "@/hooks/useUser";
 import { createSchemaFieldValidators } from "@/lib/validationForm";
-import { profileFormSchema, type ProfileFormValues } from "@/lib/validations/auth.dto";
+import { profileFormSchema, type ProfileFormValues, type UpdateUserDto } from "@/lib/validations/auth.dto";
 import { formStyle } from "@/tailwindGlobal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger } from "@radix-ui/react-alert-dialog";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
@@ -19,12 +19,32 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, update, deleteAccount, isDeleting } = useUser();
 
+  const buildUpdatePayload = (values: ProfileFormValues): UpdateUserDto => {
+    const payload: UpdateUserDto = {};
+
+    if (values.name) payload.name = values.name;
+    if (values.email) payload.email = values.email;
+    if (values.phone) payload.phone = values.phone;
+    if (values.isActive !== undefined) payload.isActive = values.isActive;
+
+    // senha
+    if (values.password) {
+      payload.password = values.password;
+    }
+
+    return payload;
+  };
+
+
+
   const form = useForm({
     defaultValues: {
       name: user.name || '',
       email: user.email || '',
       phone: user.phone || '',
       isActive: user.isActive ?? true,
+      password: '',
+      confirmPassword: ''
     } satisfies ProfileFormValues,
 
     validationLogic: revalidateLogic(),
@@ -35,7 +55,9 @@ export default function ProfilePage() {
 
     onSubmit: async ({ value }) => {
       try {
-        await update(value);
+        const dto = buildUpdatePayload(value);
+
+        await update(dto);
         toast.success('Dados atualizados com sucesso!');
       } catch (err) {
         if (err instanceof AxiosError) {
@@ -43,13 +65,20 @@ export default function ProfilePage() {
           switch (err.status) {
             case 400: {
               toast.error(`Campos obrigatórios vazios`);
+              break;
+            }
+            case 500: {
+              toast.error('Erro interno do servidor');
+              break;
+            }
+            case 401: {
+              toast.error('Sua seção expirou!');
+              navigate('/', { replace: true });
             }
           }
         }
       }
-
     }
-
   });
 
   const handleDeleteUser = async () => {
@@ -127,7 +156,7 @@ export default function ProfilePage() {
             </form.Field>
           </div>
 
-          {/* <form.Field name="password" validators={getValidation("password")}>
+          <form.Field name="password" validators={getValidation("password")}>
             {(field) => (
               <div className={formStyle.inputWrapper}>
                 <label htmlFor={field.name} className='font-semibold'>Senha</label>
@@ -169,7 +198,7 @@ export default function ProfilePage() {
                 )}
               </div>
             )}
-          </form.Field> */}
+          </form.Field>
 
           <div className={formStyle.inputWrapper}>
             <form.Field name="phone" validators={getValidation("phone")}>

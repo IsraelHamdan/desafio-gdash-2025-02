@@ -56,7 +56,6 @@ export const weatherInsightSchema = z.object({
 export type WeatherInsightDto = z.infer<typeof weatherInsightSchema>;
 
 
-
 export const AIResponseSchema = z.object({
   summary: z.string().min(1),
   productionForecast: z.union([
