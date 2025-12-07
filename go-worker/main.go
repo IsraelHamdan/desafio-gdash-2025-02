@@ -13,11 +13,11 @@ import (
 )
 
 type WeatherIntake struct {
-	Location  map[string]any `json:"location"`
-	Provider  string         `json:"provider"`
-	RequestedAt string       `json:"requestedAt"`
-	Current   map[string]any `json:"current"`
-	Hourly    []map[string]any `json:"hourly"`
+	Location    map[string]any   `json:"location"`
+	RequestedAt string           `json:"requestedAt"`
+	Current     map[string]any   `json:"current"`
+	Hourly      []map[string]any `json:"hourly"`
+	Daily       []map[string]any `json:"daily"` 
 }
 
 func connectRabbitMQ(rabbitURL string) (*amqp.Connection, error) {
@@ -99,10 +99,16 @@ func main() {
 	for delivery := range msgs {
 		var intake WeatherIntake
 
+
 		if err := json.Unmarshal(delivery.Body, &intake); err != nil {
 			log.Printf("failed to unmarshal message: %v", err)
 			_ = delivery.Nack(false, false) // descarta mensagem inválida
 			continue
+		}
+		log.Printf("DEBUG intake.Daily len: %d", len(intake.Daily))
+		if len(intake.Daily) > 0 {
+				b, _ := json.Marshal(intake.Daily[0])
+				log.Printf("DEBUG intake.Daily[0]: %s", string(b))
 		}
 
 		body, err := json.Marshal(intake)
@@ -120,14 +126,15 @@ func main() {
 		}
 		req.Header.Set("Content-Type", "application/json")
 
+		log.Printf("DEBUG payload to Nest: %s", string(body))
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Printf("failed to call Nest API: %v", err)
 			_ = delivery.Nack(false, true)
 			continue
 		}
-		defer resp.Body.Close()
 		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				_ = delivery.Ack(false)

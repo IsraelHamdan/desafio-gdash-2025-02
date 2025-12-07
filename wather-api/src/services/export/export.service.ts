@@ -76,7 +76,6 @@ export class ExportService {
     sheet.addRow(['Latitude', location.lat]);
     sheet.addRow(['Longitude', location.lon]);
     sheet.addRow([]);
-    sheet.addRow(['Provider', log.provider]);
     sheet.addRow(['Requested At', log.requestedAt.toISOString()]);
     sheet.addRow([]);
     sheet.addRow(['Resumo do Insight']);

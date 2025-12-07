@@ -52,7 +52,6 @@ def get_lat_lon_from_address(location: dict):
     resp.raise_for_status()
 
     data = resp.json()
-    # 👇 AQUI estava o erro
     results = data.get("results") or []
 
     print(results)

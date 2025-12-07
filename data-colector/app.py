@@ -1,5 +1,6 @@
 import os
 import json
+import traceback
 import pika
 import time
 from geocoding import get_lat_lon_from_address  
@@ -44,18 +45,9 @@ def main():
             print("="*60)
             
             msg = json.loads(body)
-            print(f"📦 Payload completo: {json.dumps(msg, indent=2)}")
-            
-            
-            location_raw = msg["location"]
-            print(f"📥 Recebido pedido de clima para: {location_raw}")
+            location = msg["location"]
 
-           
-            enriched_location = get_lat_lon_from_address(location_raw)
-            print(f"🌍 Location enriquecido: {enriched_location}")
-
-            weather_payload = collect_weather_log_location(enriched_location)
-            print(f"🌤️  Weather payload: {json.dumps(weather_payload, indent=2)[:200]}...")
+            weather_payload = collect_weather_log_location(location)
 
             ch.basic_publish(
                 exchange="",
@@ -69,7 +61,8 @@ def main():
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
         except Exception as e:
-            print(f"[❌] Erro ao processar mensagem: {e}", flush=True)
+            print("[❌] Erro ao processar mensagem:")
+            traceback.print_exc()
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
     print(" [*] Aguardando mensagens em weather.locations...")

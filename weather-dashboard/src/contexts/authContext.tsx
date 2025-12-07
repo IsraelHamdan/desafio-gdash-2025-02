@@ -22,7 +22,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     bootstrap();
-  }, []);
+  }, [bootstrap]);
 
   if (auth.status === 'checking') {
     return <Tipography variant='h2'>Carregando seção</Tipography>;

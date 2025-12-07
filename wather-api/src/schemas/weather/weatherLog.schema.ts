@@ -12,9 +12,6 @@ export class WeatherLog {
   @Prop({ type: Types.ObjectId, ref: Location.name, required: true })
   location: Types.ObjectId | Location;
 
-  @Prop({ required: true, default: 'open-meteo' })
-  provider: string;
-
   @Prop({ required: true })
   requestedAt: Date;
 
@@ -59,7 +56,64 @@ export class WeatherLog {
     windspeed: number;
     precipitation: number;
   }>;
+
+  @Prop({
+    type: [
+      {
+        time: Date,
+        temperatureMax: Number,
+        temperatureMin: Number,
+        apparentTemperatureMax: Number,
+        apparentTemperatureMin: Number,
+        uvIndexMax: Number,
+        uvIndexClearSkyMax: Number,
+        precipitationProbabilityMax: Number,
+        precipitationSum: Number,
+        rainSum: Number,
+        snowfallSum: Number,
+        sunrise: Date,
+        sunset: Date,
+        daylightDuration: Number,
+        sunshineDuration: Number,
+        windSpeed10mMax: Number,
+        windSpeed10mMin: Number,
+        windGusts10mMax: Number,
+        windGusts10mMin: Number,
+        windDirection10mDominant: Number,
+        relativeHumidity2mMax: Number,
+        relativeHumidity2mMin: Number,
+        relativeHumidity2mMean: Number,
+      },
+    ],
+    default: [],
+  })
+  daily: Array<{
+    time: Date;
+    temperatureMax: number;
+    temperatureMin: number;
+    apparentTemperatureMax: number;
+    apparentTemperatureMin: number;
+    uvIndexMax: number;
+    uvIndexClearSkyMax: number;
+    precipitationProbabilityMax: number;
+    precipitationSum: number;
+    rainSum: number;
+    snowfallSum: number;
+    sunrise: Date;
+    sunset: Date;
+    daylightDuration: number;
+    sunshineDuration: number;
+    windSpeed10mMax: number;
+    windSpeed10mMin: number;
+    windGusts10mMax: number;
+    windGusts10mMin: number;
+    windDirection10mDominant: number;
+    relativeHumidity2mMax: number;
+    relativeHumidity2mMin: number;
+    relativeHumidity2mMean: number;
+  }>;
 }
 
 export type WeatherLogDocument = WeatherLog & Document;
 export const WeatherLogSchema = SchemaFactory.createForClass(WeatherLog);
+

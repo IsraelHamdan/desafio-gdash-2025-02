@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 import {
+  HttpException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -20,8 +21,7 @@ import {
   WeatherRequestResponseDto,
 } from '$/DTO/weather/weather.dto';
 import { WeatherIntakeDto } from '$/DTO/weather/weatherIntake.dto';
-import { InsigthsService } from '$/services/insigths/insigths.service';
-
+import { GeocodingResult, GeocodingService } from '../geocoding/geocoding.service';
 
 
 @Injectable()
@@ -35,9 +35,7 @@ export class WeatherService {
     @InjectModel(Location.name)
     private readonly locationModel: Model<LocationDocument>,
 
-    private readonly insight: InsigthsService,
-
-
+    private readonly geocoding: GeocodingService
   ) {}
 
   private buildLocationResponse(dto: LocationDTO, loc: { lat: number; lon: number }) {
@@ -50,6 +48,18 @@ export class WeatherService {
     };
   }
 
+  private async getGeocodeData( data: LocationDTO
+  ): Promise<GeocodingResult> {
+    try { 
+      return await this.geocoding.resolveLocation(data)
+    } catch(err) {
+      this.logger.error(`Erro ao buscar dados de geolocalização:${err}`)
+      if(err instanceof HttpException) {
+        throw err
+      }
+      throw new InternalServerErrorException(err)
+    } 
+  }
 
   // O cliente chama esse método! React -> Nest -> RabbitMQ -> Python
   async requestWeather(dto: LocationDTO): Promise<WeatherRequestResponseDto> {
@@ -64,8 +74,19 @@ export class WeatherService {
           location: this.buildLocationResponse(dto, location)
         };
       }
+      this.logger.log(`Dados recebidos para busca: ${JSON.stringify(dto)}`)
+      const geocoding = await this.getGeocodeData(dto)
 
-      await this.rabbit.sendToQueue(this.locationsQueue, { location: dto });
+      await this.rabbit.sendToQueue(this.locationsQueue, { 
+        location: {
+          city: dto.city,
+          state: dto.state,
+          countryCode: dto.countryCode,
+          lat: geocoding.lat,
+          lon: geocoding.lon,
+          timezone: geocoding.timezone
+        }
+       });
 
       const maxWaitMs = 15000;
       const pollIntervalMs = 1000;
@@ -100,12 +121,13 @@ export class WeatherService {
     data: LocationDTO,
   ): Promise<LocationReturn | null> {
     try {
-      const { countryCode, city, state } = data;
+      const { countryCode, city, state,  } = data;
 
       const location = await this.locationModel.findOne({
         countryCode,
         city,
         state,
+        
       });
 
       if (location) {
@@ -121,7 +143,6 @@ export class WeatherService {
 
         if (diffHours < 2) {
           const log: WeatherLogDto = {
-            provider: lastLog.provider,
             requestedAt: lastLog.requestedAt,
             current: {
               temperature: lastLog.current.temperature,
@@ -139,14 +160,44 @@ export class WeatherService {
               windspeed: h.windspeed,
               precipitation: h.precipitation,
             })),
+            daily: (lastLog.daily ?? []).map((d) => ({
+              time: d.time,
+              temperatureMax: d.temperatureMax,
+              temperatureMin: d.temperatureMin,
+              apparentTemperatureMax: d.apparentTemperatureMax,
+              apparentTemperatureMin: d.apparentTemperatureMin,
+              uvIndexMax: d.uvIndexMax,
+              uvIndexClearSkyMax: d.uvIndexClearSkyMax,
+              precipitationProbabilityMax: d.precipitationProbabilityMax,
+              precipitationSum: d.precipitationSum,
+              rainSum: d.rainSum,
+              snowfallSum: d.snowfallSum,
+              sunrise: d.sunrise,
+              sunset: d.sunset,
+              daylightDuration: d.daylightDuration,
+              sunshineDuration: d.sunshineDuration,
+              windSpeed10mMax: d.windSpeed10mMax,
+              windSpeed10mMin: d.windSpeed10mMin,
+              windGusts10mMax: d.windGusts10mMax,
+              windGusts10mMin: d.windGusts10mMin,
+              windDirection10mDominant: d.windDirection10mDominant,
+              relativeHumidity2mMax: d.relativeHumidity2mMax,
+              relativeHumidity2mMin: d.relativeHumidity2mMin,
+              relativeHumidity2mMean: d.relativeHumidity2mMean,
+            })),
           };
-          return { status: 'cached', log, location: {
-            _id: location._id,
-            lat: location.lat,
-            lon: location.lon
-          }
-         };
+
+          return {
+            status: 'cached',
+            log,
+            location: {
+              _id: location._id,
+              lat: location.lat,
+              lon: location.lon,
+            },
+          };
         }
+
       }
       return null;
     } catch (err) {
@@ -162,10 +213,10 @@ export class WeatherService {
     dto: WeatherIntakeDto,
   ): Promise<LocationDocument | null> {
     try {
-      const { countryCode, city, lat, lon, state } = dto.location;
+      const { countryCode, city, lat, lon, state,  } = dto.location;
 
       return await this.locationModel.findOneAndUpdate(
-        { countryCode, city, state },
+        { countryCode, city, state,  },
         { countryCode, city, state, lat, lon },
         { upsert: true, new: true },
       );
@@ -189,13 +240,37 @@ export class WeatherService {
 
       const weatherLog = await this.weatherLog.create({
         location: updatedLocation?._id,
-        provider: dto.provider,
         requestedAt: new Date(dto.requestedAt),
         current: {
           ...dto.current,
           time: dto.current.time,
         },
         hourly: dto.hourly.map((h) => ({ ...h, time: new Date(h.time) })),
+        daily: dto.daily.map((d) => ({
+          time: new Date(d.time),
+          temperatureMax: d.temperatureMax,
+          temperatureMin: d.temperatureMin,
+          apparentTemperatureMax: d.apparentTemperatureMax,
+          apparentTemperatureMin: d.apparentTemperatureMin,
+          uvIndexMax: d.uvIndexMax,
+          uvIndexClearSkyMax: d.uvIndexClearSkyMax,
+          precipitationProbabilityMax: d.precipitationProbabilityMax,
+          precipitationSum: d.precipitationSum,
+          rainSum: d.rainSum,
+          snowfallSum: d.snowfallSum,
+          sunrise: new Date(d.sunrise),
+          sunset: new Date(d.sunset),
+          daylightDuration: d.daylightDuration,
+          sunshineDuration: d.sunshineDuration,
+          windSpeed10mMax: d.windSpeed10mMax,
+          windSpeed10mMin: d.windSpeed10mMin,
+          windGusts10mMax: d.windGusts10mMax,
+          windGusts10mMin: d.windGusts10mMin,
+          windDirection10mDominant: d.windDirection10mDominant,
+          relativeHumidity2mMax: d.relativeHumidity2mMax,
+          relativeHumidity2mMin: d.relativeHumidity2mMin,
+          relativeHumidity2mMean: d.relativeHumidity2mMean,
+        }))
       });
 
       return this.mapWeatherLogToDto(weatherLog);
@@ -210,11 +285,8 @@ export class WeatherService {
     }
   }
 
-
-
   private mapWeatherLogToDto(doc: WeatherLogDocument): WeatherLogDto {
     return {
-      provider: doc.provider,
       requestedAt: doc.requestedAt,
       current: {
         temperature: doc.current.temperature,
@@ -232,6 +304,32 @@ export class WeatherService {
         windspeed: h.windspeed,
         precipitation: h.precipitation,
       })),
+      daily: (doc.daily ?? []).map((d) => ({
+        time: d.time,
+        temperatureMax: d.temperatureMax,
+        temperatureMin: d.temperatureMin,
+        apparentTemperatureMax: d.apparentTemperatureMax,
+        apparentTemperatureMin: d.apparentTemperatureMin,
+        uvIndexMax: d.uvIndexMax,
+        uvIndexClearSkyMax: d.uvIndexClearSkyMax,
+        precipitationProbabilityMax: d.precipitationProbabilityMax,
+        precipitationSum: d.precipitationSum,
+        rainSum: d.rainSum,
+        snowfallSum: d.snowfallSum,
+        sunrise: d.sunrise,
+        sunset: d.sunset,
+        daylightDuration: d.daylightDuration,
+        sunshineDuration: d.sunshineDuration,
+        windSpeed10mMax: d.windSpeed10mMax,
+        windSpeed10mMin: d.windSpeed10mMin,
+        windGusts10mMax: d.windGusts10mMax,
+        windGusts10mMin: d.windGusts10mMin,
+        windDirection10mDominant: d.windDirection10mDominant,
+        relativeHumidity2mMax: d.relativeHumidity2mMax,
+        relativeHumidity2mMin: d.relativeHumidity2mMin,
+        relativeHumidity2mMean: d.relativeHumidity2mMean,
+      })),
     };
   }
+
 }

@@ -14,6 +14,7 @@ import { InsightsModule } from '../insights/insights.module';
 import { WeatherInsight, WeatherInsightSchema } from '$/schemas/insights/insight.schema';
 import { ExportModule } from '../export/export.module';
 import { ExportService } from '$/services/export/export.service';
+import { GeocodingModule } from '../geocoding/geocoding.module';
 
 @Module({
   controllers: [WeatherController],
@@ -24,8 +25,8 @@ import { ExportService } from '$/services/export/export.service';
       { name: WeatherLog.name, schema: WeatherLogSchema },
       { name: Location.name, schema: LocSchema },
       { name: WeatherInsight.name, schema: WeatherInsightSchema },
-
     ]),
+    GeocodingModule,
     InsightsModule,
     ExportModule
   ],
