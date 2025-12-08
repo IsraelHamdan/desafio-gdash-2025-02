@@ -1,7 +1,7 @@
 import z from "zod";
 
 export const locationSchema = z.object({
-  state: z.string().max(2, { message: 'somente a sigla do estado' }),
+  state: z.string().min(2, { message: 'somente a sigla do estado' }),
   countryCode: z.string().max(2, { message: 'somente a sigla do país' }),
   city: z
     .string()
@@ -17,3 +17,17 @@ export const locationWithCoordsSchema = locationSchema.extend({
 
 export type LocationCoords = z.infer<typeof locationWithCoordsSchema>
 
+export type OpenMeteoResult = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country: string;
+  country_code: string;
+  admin1?: string; 
+  timezone: string;
+};
+
+export type OpenMeteoGeocodingResponse = {
+  results?: OpenMeteoResult[];
+};

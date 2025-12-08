@@ -14,9 +14,9 @@ export default function Tipography({
   className,
 }: TipographyProps) {
   const variants = {
-    h1: "text-4xl font-poppins font-bold text-gray-900",
-    h2: "text-3xl font-poppins font-bold text-gray-900",
-    h3: "text-2xl font-poppins font-bold text-gray-900",
+    h1: "text-4xl font-poppins font-bold",
+    h2: "text-3xl font-poppins font-bold",
+    h3: "text-2xl font-poppins font-bold",
     p: "font-medium text-gray-700 font-inter",
     span: "text-gray-600 font-ligth font-inter",
     alert: "text-red-600 font-medium font-inter",
@@ -28,10 +28,10 @@ export default function Tipography({
     h3: "h3",
     p: "p",
     span: "span",
-    alert: "p", 
+    alert: "p",
   };
 
-  const Tag = tagMap[variant];  
+  const Tag = tagMap[variant];
 
   return (
     <Tag className={`${variants[variant]} ${className ?? ""}`}>{children}</Tag>

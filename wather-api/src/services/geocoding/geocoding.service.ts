@@ -47,7 +47,6 @@ export class GeocodingService {
 
   async resolveLocation(data: LocationDTO): Promise<GeocodingResult> {
     try { 
-      this.logger.log(`Dados recebidos para busca em resolveLocation: ${JSON.stringify(data)}`)
       const results = await this.getGeocodingDataWithRetry(data)
 
       const bestMatch = this.pickBestMatch(results, data.state, data.countryCode)
@@ -100,7 +99,6 @@ export class GeocodingService {
       return results;
     } catch (err) {
       if (err instanceof NotFoundException) {
-        // cidade realmente não encontrada → não adianta tentar de novo
         throw err;
       }
 
@@ -114,13 +112,11 @@ export class GeocodingService {
         const status = err.response?.status;
 
         if (status && status >= 400 && status < 500) {
-          // 4xx que não seja NotFound você pode tratar como invalidação de input
           throw new NotFoundException(
             `Localização inválida ou não encontrada: city=${dto.city}, state=${dto.state}, country=${dto.countryCode}`,
           );
         }
 
-        // 5xx, timeouts, DNS etc. são tratados como retryable pelo wrapper
         throw new ServiceUnavailableException(
           'Serviço de geocodificação indisponível no momento',
         );
@@ -174,7 +170,7 @@ export class GeocodingService {
   private async getGeocodingDataWithRetry(
     dto: LocationDTO,
   ): Promise<OpenMeteoGeocodingResult[]> {
-    const maxAttempts = 3;
+    const maxAttempts = 10;
     const baseDelayMs = 500; // meio segundo
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {

@@ -10,6 +10,7 @@ export const currentWeatherSchema = z.object({
   time: z.coerce.date(),
   isDay: z.boolean(),
 });
+export type Current= z.infer<typeof currentWeatherSchema>
 
 
 export const hourlyWeatherPointSchema = z.object({
@@ -19,6 +20,7 @@ export const hourlyWeatherPointSchema = z.object({
   windspeed: z.number(),
   precipitation: z.number(),
 });
+export type Hourly = z.infer<typeof hourlyWeatherPointSchema>
 
 export const dailyWeatherPointSchema = z.object({
   time: z.coerce.date(),
@@ -51,6 +53,8 @@ export const dailyWeatherPointSchema = z.object({
   relativeHumidity2mMin: z.number(),
   relativeHumidity2mMean: z.number(),
 })
+
+export type Daily = z.infer<typeof dailyWeatherPointSchema>
 
 export const weatherLogSchema = z.object({
   requestedAt: z.coerce.date(),

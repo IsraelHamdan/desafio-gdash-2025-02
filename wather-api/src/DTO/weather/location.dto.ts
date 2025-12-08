@@ -4,7 +4,7 @@ import { WeatherLogDto } from './weather.dto';
 import { Types } from 'mongoose';
 
 export const locationSchema = z.object({
-  state: z.string().max(2, { message: 'somente a sigla do estado' }),
+  state: z.string().min(2, { message: 'somente a sigla do estado' }),
   countryCode: z.string().max(2, { message: 'somente a sigla do país' }),
   city: z
     .string()
