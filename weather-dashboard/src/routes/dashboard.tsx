@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import InsightsComponent from "@/components/Insigts";
 import SearchComponent from "@/components/searchBar";
 import HourlyTable from "@/components/Table/HourlyTable";
 import Tipography from "@/components/Tipography";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import useWeather from "@/hooks/useWeather";
+import type { WeatherIntakeDto } from "@/lib/validations/weather";
 
 export default function DashboardPage() {
   const { getData, weatherData, isPending } = useWeather();
@@ -14,10 +16,29 @@ export default function DashboardPage() {
   const daily = isCached ? weatherData.log.daily : null;
   const hourly = isCached ? weatherData.log.hourly : null;
 
+  const intake: WeatherIntakeDto | null =
+    isCached && location && current && daily && hourly
+      ? {
+        location: {
+          state: location.state,
+          countryCode: location.countryCode,
+          city: location.city,
+          lat: location.lat,
+          lon: location.lon,
+        },
+        requestedAt: weatherData.log.requestedAt, // se existir no log
+        current,
+        hourly,
+        daily,
+      }
+      : null;
+
+
   const round = (value: number, decimals = 0) =>
     Number(value.toFixed(decimals));
 
   const isDay = current?.isDay;
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -141,6 +162,24 @@ export default function DashboardPage() {
             )}
 
           </Card>
+
+          <aside>
+            <Card>
+              <CardHeader>
+                <Tipography
+                  variant="h2"
+                  className={isDay ? "text-blue-600" : "text-blue-200"}
+                >
+                  Geração de energia solar
+                </Tipography>
+              </CardHeader>
+              <CardContent>
+                {isCached && intake && (
+                  <InsightsComponent data={intake} />
+                )}
+              </CardContent>
+            </Card>
+          </aside>
         </div>
       )}
     </div>
